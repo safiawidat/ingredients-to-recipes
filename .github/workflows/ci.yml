@@ -15,6 +15,11 @@ jobs:
   check:
     runs-on: ubuntu-latest
 
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://test:test@localhost:5432/test
+      CORS_ORIGIN: http://localhost:5173
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

@@ -35,7 +35,7 @@ jobs:
         run: npm ci --prefix server
 
       - name: Generate Prisma client
-        run: npm run prisma:generate --prefix server
+        run: npm run db:generate --prefix server
 
       - name: Run project checks
         run: npm run check

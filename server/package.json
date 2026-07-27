@@ -10,7 +10,6 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run",
-    "prisma:generate": "prisma generate",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed"
@@ -43,5 +42,8 @@
     "typescript-eslint": "^8.65.0",
     "vitest": "^4.1.10"
   },
-  "type": "module"
+  "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  }
 }

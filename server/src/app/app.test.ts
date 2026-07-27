@@ -15,3 +15,17 @@ describe('GET /api/v1/health', () => {
     });
   });
 });
+
+describe('unknown routes', () => {
+  it('returns the shared 404 error format', async () => {
+    const response = await request(app).get('/api/v1/unknown');
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      error: {
+        code: 'NOT_FOUND',
+        message: 'Route not found',
+      },
+    });
+  });
+});

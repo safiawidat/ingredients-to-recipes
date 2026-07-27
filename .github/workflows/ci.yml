@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - feature/**
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            client/package-lock.json
+            server/package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci --prefix client
+
+      - name: Install server dependencies
+        run: npm ci --prefix server
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate --prefix server
+
+      - name: Run project checks
+        run: npm run check

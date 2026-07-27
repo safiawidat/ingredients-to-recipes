@@ -91,3 +91,23 @@ describe('unexpected errors', () => {
     });
   });
 });
+
+describe('application security', () => {
+  it('adds security headers', async () => {
+    const response = await request(app).get('/api/v1/health');
+
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+    expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
+  });
+
+  it('allows the configured frontend origin', async () => {
+    const response = await request(app)
+      .get('/api/v1/health')
+      .set('Origin', 'http://localhost:5173');
+
+    expect(response.headers['access-control-allow-origin']).toBe(
+      'http://localhost:5173',
+    );
+    expect(response.headers['access-control-allow-credentials']).toBe('true');
+  });
+});

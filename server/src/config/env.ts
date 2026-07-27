@@ -8,6 +8,7 @@ const environmentSchema = z.object({
     .default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  CORS_ORIGIN: z.string().default('http://localhost:5173'),
 });
 
 const result = environmentSchema.safeParse(process.env);

@@ -2,7 +2,7 @@
   "name": "ingredients-to-recipes",
   "private": true,
   "scripts": {
-    "install:all": "npm install --prefix client && npm install --prefix server",
+    "install:all": "npm --prefix client ci && npm --prefix server ci",
     "dev:client": "npm run dev --prefix client",
     "dev:server": "npm run dev --prefix server",
     "build": "npm run build --prefix client && npm run build --prefix server",

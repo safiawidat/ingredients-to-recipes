@@ -29,3 +29,17 @@ describe('unknown routes', () => {
     });
   });
 });
+
+describe('unexpected errors', () => {
+  it('returns the shared 500 error format', async () => {
+    const response = await request(app).get('/api/v1/test-error');
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An unexpected error occurred',
+      },
+    });
+  });
+});

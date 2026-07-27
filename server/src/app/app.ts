@@ -1,5 +1,6 @@
 import express from 'express';
 
+import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
 
 export const app = express();
@@ -14,4 +15,9 @@ app.get('/api/v1/health', (_request, response) => {
   });
 });
 
+app.get('/api/v1/test-error', () => {
+  throw new Error('Test error');
+});
+
 app.use(notFoundHandler);
+app.use(errorHandler);

@@ -2,9 +2,11 @@ import express from 'express';
 
 import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
+import { requestLogger } from './middleware/request-logger.js';
 
 export const app = express();
 
+app.use(requestLogger);
 app.use(express.json());
 
 app.get('/api/v1/health', (_request, response) => {

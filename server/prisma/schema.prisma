@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -10,4 +5,107 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum IngredientCategory {
+  MAIN
+  SIDE
+  OTHER
+}
+
+model User {
+  id           String                  @id @default(cuid())
+  name         String
+  email        String                  @unique
+  passwordHash String
+  role         UserRole                @default(USER)
+  favorites    Favorite[]
+  history      RecommendationHistory[]
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+}
+
+model Ingredient {
+  id        String             @id @default(cuid())
+  name      String             @unique
+  aliases   IngredientAlias[]
+  recipes   RecipeIngredient[]
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+}
+
+model IngredientAlias {
+  id           String     @id @default(cuid())
+  alias        String     @unique
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@index([ingredientId])
+}
+
+model Recipe {
+  id              String             @id @default(cuid())
+  name            String
+  description     String?
+  instructions    String
+  cuisine         String?
+  preparationTime Int?
+  servings        Int?
+  imageUrl        String?
+  sourceUrl       String?
+  dietTags        String[]
+  allergens       String[]
+  ingredients     RecipeIngredient[]
+  favorites       Favorite[]
+  isPublished     Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([name])
+  @@index([cuisine])
+  @@index([preparationTime])
+}
+
+model RecipeIngredient {
+  id           String             @id @default(cuid())
+  recipeId     String
+  ingredientId String
+  quantity     Decimal?
+  unit         String?
+  category     IngredientCategory @default(OTHER)
+  recipe       Recipe             @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient         @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@unique([recipeId, ingredientId])
+  @@index([ingredientId])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  recipeId  String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, recipeId])
+  @@index([recipeId])
+}
+
+model RecommendationHistory {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inputIngredients Json
+  filters          Json?
+  results          Json
+  createdAt        DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

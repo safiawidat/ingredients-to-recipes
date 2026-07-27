@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { queryRawMock } = vi.hoisted(() => ({
   queryRawMock: vi.fn(),
@@ -80,6 +80,7 @@ describe('unknown routes', () => {
 
 describe('unexpected errors', () => {
   it('returns the shared 500 error format', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const response = await request(app).get('/api/v1/test-error');
 
     expect(response.status).toBe(500);
@@ -110,4 +111,8 @@ describe('application security', () => {
     );
     expect(response.headers['access-control-allow-credentials']).toBe('true');
   });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });

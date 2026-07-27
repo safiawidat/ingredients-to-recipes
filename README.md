@@ -1,4 +1,3 @@
-@'
 # Ingredients to Recipes
 
 A full-stack web application that recommends recipes based on ingredients the user already has.
@@ -16,38 +15,39 @@ A full-stack web application that recommends recipes based on ingredients the us
 
 ## Project Structure
 
-```text
-client/      React frontend
-server/      Express API
-docs/        Project documentation
-database/    Database-related assets
-sample-data/ Sample recipe data
+- client/ - React frontend
+- server/ - Express API
+- docs/ - project documentation
+- database/ - database assets
+- sample-data/ - sample recipe data
 
+## Requirements
 
-Requirements
-Node.js 22
-npm
-PostgreSQL database
-Setup
+- Node.js 22
+- npm
+- PostgreSQL database
 
-Install all dependencies:
+## Setup
+
+Install dependencies:
 
 npm run install:all
 
-Create local environment files:
-
-client/.env
-server/.env
-
-Use the provided examples:
+Create local environment files using:
 
 client/.env.example
 server/.env.example
 
-Generate the Prisma client:
+Save them as:
+
+client/.env
+server/.env
+
+Generate Prisma Client:
 
 npm run db:generate
-Development
+
+## Development
 
 Start the backend:
 
@@ -56,49 +56,35 @@ npm run dev:server
 Start the frontend in another terminal:
 
 npm run dev:client
-Quality Checks
 
-Run linting, type checks, tests, and production builds:
+## Quality Checks
+
+Run all checks:
 
 npm run check
-Database Commands
+
+## Database Commands
 
 Generate Prisma Client:
 
 npm run db:generate
 
-Apply committed migrations:
+Apply migrations:
 
 npm run db:migrate
 
-Run the seed script:
+Run seed:
 
 npm run db:seed
-API Health Endpoints
+
+## API Health Endpoints
+
 GET /api/v1/health
+
 GET /api/v1/health/database
-Environment Variables
-Client
-VITE_API_BASE_URL=http://localhost:3000/api/v1
-Server
-DATABASE_URL=postgresql://...
-PORT=3000
-NODE_ENV=development
-CORS_ORIGIN=http://localhost:5173
 
-Never commit real credentials or local .env files.
+## Deployment
 
-Deployment
+The backend is prepared for Render through render.yaml.
 
-The backend is prepared for Render using render.yaml.
-
-Production database migrations run automatically before the API starts.
-'@ | Set-Content README.md
-
-
-Then verify:
-
-```powershell
-npm run check
-git diff --check
-git status --short
+Never commit real .env files or database credentials.

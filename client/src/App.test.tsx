@@ -1,16 +1,21 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import App from './App';
 
 describe('App', () => {
-  it('renders the main application heading', () => {
-    render(<App />);
+  it('renders the catch-all not-found route', () => {
+    render(
+      <MemoryRouter initialEntries={['/missing']}>
+        <App />
+      </MemoryRouter>,
+    );
 
     expect(
       screen.getByRole('heading', {
         level: 1,
-        name: 'Get started',
+        name: 'Page not found',
       }),
     ).toBeInTheDocument();
   });

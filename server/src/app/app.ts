@@ -1,4 +1,5 @@
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
 
@@ -6,6 +7,7 @@ import { env } from '../config/env.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { requestLogger } from './middleware/request-logger.js';
+import { authRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
 
 export const app = express();
@@ -25,12 +27,16 @@ app.use(
     limit: '1mb',
   }),
 );
+app.use(cookieParser());
 
+app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/health', healthRouter);
 
-app.get('/api/v1/test-error', () => {
-  throw new Error('Test error');
-});
+if (env.NODE_ENV === 'test') {
+  app.get('/api/v1/test-error', () => {
+    throw new Error('Test error');
+  });
+}
 
 app.use(notFoundHandler);
 app.use(errorHandler);

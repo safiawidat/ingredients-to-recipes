@@ -22,3 +22,6 @@ services:
 
       - key: CORS_ORIGIN
         sync: false
+
+      - key: JWT_SECRET
+        sync: false

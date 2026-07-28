@@ -7,6 +7,10 @@ type ApiErrorBody = {
   };
 };
 
+export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
+  body?: unknown;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -21,15 +25,20 @@ export class ApiError extends Error {
 
 export const apiRequest = async <T>(
   path: string,
-  options: RequestInit = {},
+  options: ApiRequestOptions = {},
 ): Promise<T> => {
+  const { body, headers: optionHeaders, ...requestOptions } = options;
+  const headers = new Headers(optionHeaders);
+
+  if (body !== undefined && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
   const response = await fetch(`${env.apiBaseUrl}${path}`, {
-    ...options,
+    ...requestOptions,
+    body: body === undefined ? undefined : JSON.stringify(body),
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -40,6 +49,10 @@ export const apiRequest = async <T>(
       body.error?.code ?? 'REQUEST_FAILED',
       body.error?.message ?? 'The request could not be completed',
     );
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   return response.json() as Promise<T>;

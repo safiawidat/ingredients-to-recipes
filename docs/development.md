@@ -37,3 +37,13 @@ npm run check
 Migrations are stored in:
 
 server/prisma/migrations
+
+## Authentication Deployment
+
+The production `JWT_SECRET` must be configured manually and must not be
+committed to the repository.
+
+The default `SameSite=Lax` authentication cookie requires the deployed
+frontend and API to be under the same site. A cross-site deployment requires
+`AUTH_COOKIE_SAME_SITE=none`, `AUTH_COOKIE_SECURE=true`, and CSRF protection
+before it is enabled.

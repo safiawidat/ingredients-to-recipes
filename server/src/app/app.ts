@@ -9,6 +9,7 @@ import { notFoundHandler } from './middleware/not-found.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { authRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
+import { ingredientAliasRouter } from './routes/ingredient-aliases.js';
 
 export const app = express();
 
@@ -31,6 +32,7 @@ app.use(cookieParser());
 
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/health', healthRouter);
+app.use('/api/v1/admin/ingredient-aliases', ingredientAliasRouter);
 
 if (env.NODE_ENV === 'test') {
   app.get('/api/v1/test-error', () => {

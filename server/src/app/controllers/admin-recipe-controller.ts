@@ -2,13 +2,35 @@ import type { RequestHandler } from 'express';
 
 import {
   createRecipe as createRecipeInService,
+  listAllRecipes,
   updateRecipe as updateRecipeInService,
 } from '../services/recipe-service.js';
 import {
   createRecipeSchema,
+  listRecipesQuerySchema,
   recipeIdParamSchema,
   updateRecipeSchema,
 } from '../validation/recipe-schemas.js';
+
+export const listRecipes: RequestHandler = async (request, response) => {
+  const query = listRecipesQuerySchema.parse(request.query);
+  const result = await listAllRecipes({
+    page: query.page,
+    pageSize: query.pageSize,
+  });
+
+  response.status(200).json({
+    data: {
+      recipes: result.recipes,
+      pagination: {
+        page: result.page,
+        pageSize: result.pageSize,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    },
+  });
+};
 
 export const createRecipe: RequestHandler = async (request, response) => {
   const input = createRecipeSchema.parse(request.body);

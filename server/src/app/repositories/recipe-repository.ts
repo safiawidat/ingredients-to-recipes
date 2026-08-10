@@ -151,22 +151,31 @@ const isRecordNotFoundError = (error: unknown): boolean =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
   error.code === 'P2025';
 
-export const findPublishedRecipes = async (
+const findRecipes = async (
   params: RecipeListParams,
+  where: { isPublished?: boolean },
 ): Promise<RecipeListResult> => {
   const [recipes, total] = await Promise.all([
     prisma.recipe.findMany({
-      where: { isPublished: true },
+      where,
       skip: params.skip,
       take: params.take,
       orderBy: { name: 'asc' },
       select: recipeSummarySelect,
     }),
-    prisma.recipe.count({ where: { isPublished: true } }),
+    prisma.recipe.count({ where }),
   ]);
 
   return { recipes, total };
 };
+
+export const findPublishedRecipes = (
+  params: RecipeListParams,
+): Promise<RecipeListResult> => findRecipes(params, { isPublished: true });
+
+export const findAllRecipes = (
+  params: RecipeListParams,
+): Promise<RecipeListResult> => findRecipes(params, {});
 
 export const findRecipeById = async (
   id: string,

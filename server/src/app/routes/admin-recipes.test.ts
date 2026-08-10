@@ -3,15 +3,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApplicationError } from '../errors/application-error.js';
 
-const { createRecipeMock, updateRecipeMock, verifyAccessTokenMock } =
-  vi.hoisted(() => ({
+const {
+  createRecipeMock,
+  listAllRecipesMock,
+  updateRecipeMock,
+  verifyAccessTokenMock,
+} = vi.hoisted(() => ({
     createRecipeMock: vi.fn(),
+    listAllRecipesMock: vi.fn(),
     updateRecipeMock: vi.fn(),
     verifyAccessTokenMock: vi.fn(),
   }));
 
 vi.mock('../services/recipe-service.js', () => ({
   createRecipe: createRecipeMock,
+  listAllRecipes: listAllRecipesMock,
   updateRecipe: updateRecipeMock,
 }));
 
@@ -52,6 +58,21 @@ const recipeDetail = {
   ingredients: [],
 };
 
+const recipeSummary = {
+  id: recipeDetail.id,
+  name: recipeDetail.name,
+  description: recipeDetail.description,
+  cuisine: recipeDetail.cuisine,
+  preparationTime: recipeDetail.preparationTime,
+  servings: recipeDetail.servings,
+  imageUrl: recipeDetail.imageUrl,
+  dietTags: recipeDetail.dietTags,
+  allergens: recipeDetail.allergens,
+  isPublished: recipeDetail.isPublished,
+  createdAt,
+  updatedAt,
+};
+
 const validCreateBody = {
   name: 'Tomato Soup',
   instructions: 'Simmer everything.',
@@ -60,6 +81,135 @@ const validCreateBody = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+});
+
+describe('GET /api/v1/admin/recipes', () => {
+  it('rejects an unauthenticated request', async () => {
+    const response = await request(app).get('/api/v1/admin/recipes');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe('AUTHENTICATION_REQUIRED');
+    expect(listAllRecipesMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-admin user', async () => {
+    asUser();
+
+    const response = await request(app)
+      .get('/api/v1/admin/recipes')
+      .set('Cookie', adminCookie);
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('FORBIDDEN');
+    expect(listAllRecipesMock).not.toHaveBeenCalled();
+  });
+
+  it('returns published and unpublished recipes to an admin', async () => {
+    asAdmin();
+    const unpublished = {
+      ...recipeSummary,
+      id: 'recipe-2',
+      name: 'Unpublished Soup',
+      isPublished: false,
+    };
+    listAllRecipesMock.mockResolvedValue({
+      recipes: [recipeSummary, unpublished],
+      page: 1,
+      pageSize: 20,
+      total: 2,
+      totalPages: 1,
+    });
+
+    const response = await request(app)
+      .get('/api/v1/admin/recipes')
+      .set('Cookie', adminCookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.recipes).toEqual([
+      {
+        ...recipeSummary,
+        createdAt: createdAt.toISOString(),
+        updatedAt: updatedAt.toISOString(),
+      },
+      {
+        ...unpublished,
+        createdAt: createdAt.toISOString(),
+        updatedAt: updatedAt.toISOString(),
+      },
+    ]);
+    expect(response.body.data.pagination).toEqual({
+      page: 1,
+      pageSize: 20,
+      total: 2,
+      totalPages: 1,
+    });
+  });
+
+  it('applies default pagination', async () => {
+    asAdmin();
+    listAllRecipesMock.mockResolvedValue({
+      recipes: [],
+      page: 1,
+      pageSize: 20,
+      total: 0,
+      totalPages: 0,
+    });
+
+    await request(app)
+      .get('/api/v1/admin/recipes')
+      .set('Cookie', adminCookie);
+
+    expect(listAllRecipesMock).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 20,
+    });
+  });
+
+  it('passes explicit pagination to the service', async () => {
+    asAdmin();
+    listAllRecipesMock.mockResolvedValue({
+      recipes: [],
+      page: 2,
+      pageSize: 5,
+      total: 0,
+      totalPages: 0,
+    });
+
+    const response = await request(app)
+      .get('/api/v1/admin/recipes?page=2&pageSize=5')
+      .set('Cookie', adminCookie);
+
+    expect(response.status).toBe(200);
+    expect(listAllRecipesMock).toHaveBeenCalledWith({ page: 2, pageSize: 5 });
+  });
+
+  it('returns a valid empty response', async () => {
+    asAdmin();
+    listAllRecipesMock.mockResolvedValue({
+      recipes: [],
+      page: 1,
+      pageSize: 20,
+      total: 0,
+      totalPages: 0,
+    });
+
+    const response = await request(app)
+      .get('/api/v1/admin/recipes')
+      .set('Cookie', adminCookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      data: {
+        recipes: [],
+        pagination: {
+          page: 1,
+          pageSize: 20,
+          total: 0,
+          totalPages: 0,
+        },
+      },
+    });
+  });
 });
 
 describe('POST /api/v1/admin/recipes', () => {

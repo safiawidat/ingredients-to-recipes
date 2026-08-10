@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   createRecipeMock,
+  findAllRecipesMock,
   findIngredientsByIdsMock,
   findPublishedRecipesMock,
   findRecipeByIdMock,
   updateRecipeMock,
 } = vi.hoisted(() => ({
   createRecipeMock: vi.fn(),
+  findAllRecipesMock: vi.fn(),
   findIngredientsByIdsMock: vi.fn(),
   findPublishedRecipesMock: vi.fn(),
   findRecipeByIdMock: vi.fn(),
@@ -16,6 +18,7 @@ const {
 
 vi.mock('../repositories/recipe-repository.js', () => ({
   createRecipe: createRecipeMock,
+  findAllRecipes: findAllRecipesMock,
   findPublishedRecipes: findPublishedRecipesMock,
   findRecipeById: findRecipeByIdMock,
   updateRecipe: updateRecipeMock,
@@ -28,6 +31,7 @@ vi.mock('../repositories/ingredient-repository.js', () => ({
 import {
   createRecipe,
   getRecipeByIdForUser,
+  listAllRecipes,
   listPublishedRecipes,
   updateRecipe,
 } from './recipe-service.js';
@@ -176,6 +180,45 @@ describe('listPublishedRecipes', () => {
       listPublishedRecipes({ page: 1, pageSize: 2.5 }),
     ).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_PAGINATION' });
     expect(findPublishedRecipesMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('listAllRecipes', () => {
+  it('returns published and unpublished summaries with pagination', async () => {
+    const unpublished = {
+      ...recipeSummary,
+      id: 'recipe-2',
+      isPublished: false,
+    };
+    findAllRecipesMock.mockResolvedValue({
+      recipes: [recipeSummary, unpublished],
+      total: 12,
+    });
+
+    const result = await listAllRecipes({ page: 2, pageSize: 10 });
+
+    expect(findAllRecipesMock).toHaveBeenCalledWith({ skip: 10, take: 10 });
+    expect(result).toEqual({
+      recipes: [recipeSummary, unpublished],
+      page: 2,
+      pageSize: 10,
+      total: 12,
+      totalPages: 2,
+    });
+  });
+
+  it('returns valid pagination metadata for an empty list', async () => {
+    findAllRecipesMock.mockResolvedValue({ recipes: [], total: 0 });
+
+    await expect(
+      listAllRecipes({ page: 1, pageSize: 20 }),
+    ).resolves.toEqual({
+      recipes: [],
+      page: 1,
+      pageSize: 20,
+      total: 0,
+      totalPages: 0,
+    });
   });
 });
 

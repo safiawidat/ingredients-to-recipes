@@ -217,8 +217,16 @@ describe('IngredientAliasesPage', () => {
     await user.click(pendingButton);
     expect(createIngredientAliasMock).toHaveBeenCalledOnce();
 
-    resolveCreate?.({ data: { alias: loveAppleAlias } });
-    await screen.findByText('Alias “love apple” created.');
+    resolveCreate?.({
+      data: {
+        alias: {
+          ...loveAppleAlias,
+          id: 'alias-3',
+          alias: 'new alias',
+        },
+      },
+    });
+    await screen.findByText('Alias “new alias” created.');
   });
 
   it('maps duplicate create errors and preserves entered values', async () => {

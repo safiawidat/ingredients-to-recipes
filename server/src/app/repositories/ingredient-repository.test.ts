@@ -12,13 +12,36 @@ vi.mock('../../database/prisma.js', () => ({
   },
 }));
 
-import { findIngredientsByIds } from './ingredient-repository.js';
+import {
+  findIngredientsByIds,
+  listIngredients,
+} from './ingredient-repository.js';
 
 const tomato = { id: 'ingredient-1', name: 'tomato' };
 const greenOnion = { id: 'ingredient-2', name: 'green onion' };
 
 beforeEach(() => {
   vi.resetAllMocks();
+});
+
+describe('listIngredients', () => {
+  it('selects only canonical ingredient fields in alphabetical order', async () => {
+    findManyIngredientMock.mockResolvedValue([greenOnion, tomato]);
+
+    const result = await listIngredients();
+
+    expect(findManyIngredientMock).toHaveBeenCalledWith({
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    });
+    expect(result).toEqual([greenOnion, tomato]);
+  });
+
+  it('returns an empty array when there are no ingredients', async () => {
+    findManyIngredientMock.mockResolvedValue([]);
+
+    await expect(listIngredients()).resolves.toEqual([]);
+  });
 });
 
 describe('findIngredientsByIds', () => {

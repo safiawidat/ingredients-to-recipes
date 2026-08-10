@@ -30,6 +30,7 @@ vi.mock('../../database/prisma.js', () => ({
 
 import {
   createRecipe,
+  findAllRecipes,
   findPublishedRecipes,
   findRecipeById,
   updateRecipe,
@@ -121,6 +122,43 @@ describe('findPublishedRecipes', () => {
     const result = await findPublishedRecipes({ skip: 0, take: 10 });
 
     expect(result).toEqual({ recipes: [], total: 0 });
+  });
+});
+
+describe('findAllRecipes', () => {
+  it('lists recipes without a publication filter in deterministic order', async () => {
+    const unpublishedRecipe = {
+      ...recipeSummary,
+      id: 'recipe-2',
+      isPublished: false,
+    };
+    findManyRecipeMock.mockResolvedValue([recipeSummary, unpublishedRecipe]);
+    countRecipeMock.mockResolvedValue(2);
+
+    const result = await findAllRecipes({ skip: 5, take: 5 });
+
+    expect(findManyRecipeMock).toHaveBeenCalledWith({
+      where: {},
+      skip: 5,
+      take: 5,
+      orderBy: { name: 'asc' },
+      select: expect.any(Object),
+    });
+    expect(countRecipeMock).toHaveBeenCalledWith({ where: {} });
+    expect(result).toEqual({
+      recipes: [recipeSummary, unpublishedRecipe],
+      total: 2,
+    });
+  });
+
+  it('returns an empty unfiltered result cleanly', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+    countRecipeMock.mockResolvedValue(0);
+
+    await expect(findAllRecipes({ skip: 0, take: 20 })).resolves.toEqual({
+      recipes: [],
+      total: 0,
+    });
   });
 });
 

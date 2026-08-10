@@ -4,6 +4,7 @@ import { ApplicationError } from '../errors/application-error.js';
 import { findIngredientsByIds } from '../repositories/ingredient-repository.js';
 import {
   createRecipe as createRecipeInRepository,
+  findAllRecipes,
   findPublishedRecipes,
   findRecipeById,
   updateRecipe as updateRecipeInRepository,
@@ -13,6 +14,8 @@ import type {
   RecipeDetail,
   RecipeIngredientDetail,
   RecipeIngredientInput as RepositoryRecipeIngredientInput,
+  RecipeListParams as RepositoryRecipeListParams,
+  RecipeListResult as RepositoryRecipeListResult,
   RecipeSummary,
   UpdateRecipeInput as RepositoryUpdateRecipeInput,
 } from '../repositories/recipe-repository.js';
@@ -54,7 +57,7 @@ export interface UpdateRecipeServiceInput {
   ingredients?: RecipeIngredientInputDto[] | undefined;
 }
 
-export interface ListPublishedRecipesInput {
+export interface ListRecipesInput {
   page: number;
   pageSize: number;
 }
@@ -275,8 +278,13 @@ const ensureIngredientsExist = async (
   }
 };
 
-export const listPublishedRecipes = async (
-  input: ListPublishedRecipesInput,
+type FindRecipes = (
+  params: RepositoryRecipeListParams,
+) => Promise<RepositoryRecipeListResult>;
+
+const listRecipes = async (
+  input: ListRecipesInput,
+  findRecipes: FindRecipes,
 ): Promise<RecipeListDto> => {
   if (!isPositiveInteger(input.page) || !isPositiveInteger(input.pageSize)) {
     throw invalidPaginationError();
@@ -285,7 +293,7 @@ export const listPublishedRecipes = async (
   const skip = (input.page - 1) * input.pageSize;
   const take = input.pageSize;
 
-  const { recipes, total } = await findPublishedRecipes({ skip, take });
+  const { recipes, total } = await findRecipes({ skip, take });
 
   return {
     recipes: recipes.map(toRecipeSummaryDto),
@@ -295,6 +303,14 @@ export const listPublishedRecipes = async (
     totalPages: Math.ceil(total / input.pageSize),
   };
 };
+
+export const listPublishedRecipes = (
+  input: ListRecipesInput,
+): Promise<RecipeListDto> => listRecipes(input, findPublishedRecipes);
+
+export const listAllRecipes = (
+  input: ListRecipesInput,
+): Promise<RecipeListDto> => listRecipes(input, findAllRecipes);
 
 export const getRecipeByIdForUser = async (
   id: string,

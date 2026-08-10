@@ -5,6 +5,12 @@ export interface IngredientRecord {
   name: string;
 }
 
+export const listIngredients = (): Promise<IngredientRecord[]> =>
+  prisma.ingredient.findMany({
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true },
+  });
+
 export const findIngredientsByIds = async (
   ids: string[],
 ): Promise<Map<string, IngredientRecord | null>> => {

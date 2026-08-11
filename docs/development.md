@@ -38,6 +38,26 @@ Migrations are stored in:
 
 server/prisma/migrations
 
+### Controlled Development Seed Data
+
+The repository includes original, manually controlled development data with
+60 canonical ingredients, 30 aliases, and 30 recipes. The seed is
+deterministic and idempotent: repeated runs restore the controlled records and
+their recipe ingredients while leaving unrelated records alone.
+
+Seeding requires an explicit local/development opt-in and is blocked when
+`NODE_ENV=production`:
+
+```powershell
+$env:ALLOW_DATABASE_SEED = 'true'
+npm.cmd run db:seed
+Remove-Item Env:ALLOW_DATABASE_SEED
+```
+
+Do not enable `ALLOW_DATABASE_SEED` in production. The dataset is original
+project content and does not come from scraped websites or third-party recipe
+collections.
+
 ## Authentication Deployment
 
 The production `JWT_SECRET` must be configured manually and must not be

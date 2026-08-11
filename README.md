@@ -75,7 +75,16 @@ npm run db:migrate
 
 Run seed:
 
-npm run db:seed
+```powershell
+$env:ALLOW_DATABASE_SEED = 'true'
+npm.cmd run db:seed
+Remove-Item Env:ALLOW_DATABASE_SEED
+```
+
+The seed is intended only for local development and is blocked when
+`NODE_ENV=production`. It deterministically upserts an original, controlled
+dataset of 60 canonical ingredients, 30 aliases, and 30 recipes. Running it
+again restores the same controlled records without deleting unrelated data.
 
 ## API Health Endpoints
 

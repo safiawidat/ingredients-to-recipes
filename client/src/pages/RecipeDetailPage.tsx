@@ -1,19 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { ApiError } from '../lib/api';
 import { getSafeHttpUrl } from '../lib/safe-url';
+import {
+  favoriteRecipe,
+  unfavoriteRecipe,
+} from '../services/favorite-api';
 import { getRecipe } from '../services/recipe-api';
-import type { RecipeDetail } from '../types/recipe';
+import type { AuthenticatedRecipeDetail } from '../types/recipe';
 
 type LoadState = 'loading' | 'success' | 'not-found' | 'error';
 
 export const RecipeDetailPage = () => {
   const { id } = useParams<{ id: string }>();
-  const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
+  const [recipe, setRecipe] = useState<AuthenticatedRecipeDetail | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [resultId, setResultId] = useState(id);
   const [retryKey, setRetryKey] = useState(0);
+  const [isSavingFavorite, setIsSavingFavorite] = useState(false);
+  const [favoriteError, setFavoriteError] = useState<string | null>(null);
+  const [favoriteStatus, setFavoriteStatus] = useState<string | null>(null);
+  const isSavingFavoriteRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -56,6 +64,44 @@ export const RecipeDetailPage = () => {
   const retry = () => {
     setLoadState('loading');
     setRetryKey((current) => current + 1);
+  };
+
+  const toggleFavorite = async () => {
+    if (!recipe || isSavingFavoriteRef.current) {
+      return;
+    }
+
+    const wasFavorite = recipe.isFavorite;
+    isSavingFavoriteRef.current = true;
+    setIsSavingFavorite(true);
+    setFavoriteError(null);
+    setFavoriteStatus(null);
+
+    try {
+      if (wasFavorite) {
+        await unfavoriteRecipe(recipe.id);
+      } else {
+        await favoriteRecipe(recipe.id);
+      }
+
+      setRecipe((current) =>
+        current?.id === recipe.id
+          ? { ...current, isFavorite: !wasFavorite }
+          : current,
+      );
+      setFavoriteStatus(
+        wasFavorite ? 'Removed from favorites.' : 'Added to favorites.',
+      );
+    } catch (requestError) {
+      setFavoriteError(
+        requestError instanceof ApiError && requestError.status === 404
+          ? 'This recipe is no longer available.'
+          : 'Unable to update this favorite. Please try again.',
+      );
+    } finally {
+      isSavingFavoriteRef.current = false;
+      setIsSavingFavorite(false);
+    }
   };
 
   const visibleLoadState = !id
@@ -102,6 +148,26 @@ export const RecipeDetailPage = () => {
             <div>
               <h1>{recipe.name}</h1>
               {recipe.description && <p>{recipe.description}</p>}
+              <div className="recipe-favorite-control">
+                <button
+                  type="button"
+                  aria-pressed={recipe.isFavorite}
+                  disabled={isSavingFavorite}
+                  onClick={() => void toggleFavorite()}
+                >
+                  {isSavingFavorite
+                    ? recipe.isFavorite
+                      ? 'Removing...'
+                      : 'Saving...'
+                    : recipe.isFavorite
+                      ? 'Remove from favorites'
+                      : 'Add to favorites'}
+                </button>
+                {favoriteStatus && (
+                  <p role="status">{favoriteStatus}</p>
+                )}
+                {favoriteError && <p role="alert">{favoriteError}</p>}
+              </div>
             </div>
             {imageUrl && <img src={imageUrl} alt={recipe.name} />}
           </header>

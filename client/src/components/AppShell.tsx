@@ -50,6 +50,9 @@ export const AppShell = () => {
             <NavLink className={getNavLinkClassName} to="/recommendations">
               Recommendations
             </NavLink>
+            <NavLink className={getNavLinkClassName} to="/favorites">
+              Favorites
+            </NavLink>
             {isAdmin && (
               <>
                 <NavLink className={getNavLinkClassName} end to="/admin">

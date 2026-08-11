@@ -6,6 +6,7 @@ const {
   findIngredientsByIdsMock,
   findPublishedRecipesMock,
   findRecipeByIdMock,
+  findRecipeByIdForUserMock,
   updateRecipeMock,
 } = vi.hoisted(() => ({
   createRecipeMock: vi.fn(),
@@ -13,6 +14,7 @@ const {
   findIngredientsByIdsMock: vi.fn(),
   findPublishedRecipesMock: vi.fn(),
   findRecipeByIdMock: vi.fn(),
+  findRecipeByIdForUserMock: vi.fn(),
   updateRecipeMock: vi.fn(),
 }));
 
@@ -21,6 +23,7 @@ vi.mock('../repositories/recipe-repository.js', () => ({
   findAllRecipes: findAllRecipesMock,
   findPublishedRecipes: findPublishedRecipesMock,
   findRecipeById: findRecipeByIdMock,
+  findRecipeByIdForUser: findRecipeByIdForUserMock,
   updateRecipe: updateRecipeMock,
 }));
 
@@ -80,6 +83,11 @@ const publishedRecipeDetail = {
       ingredient: { id: 'ingredient-1', name: 'tomato' },
     },
   ],
+};
+
+const publishedRecipeDetailForUser = {
+  ...publishedRecipeDetail,
+  favorites: [],
 };
 
 const unpublishedRecipeDetail = {
@@ -224,19 +232,27 @@ describe('listAllRecipes', () => {
 
 describe('getRecipeByIdForUser', () => {
   it('returns a published recipe to a regular user', async () => {
-    findRecipeByIdMock.mockResolvedValue(publishedRecipeDetail);
+    findRecipeByIdForUserMock.mockResolvedValue(publishedRecipeDetailForUser);
 
-    const result = await getRecipeByIdForUser('recipe-1', 'USER');
+    const result = await getRecipeByIdForUser('recipe-1', 'user-1', 'USER');
 
     expect(result.id).toBe('recipe-1');
     expect(result.isPublished).toBe(true);
+    expect(result.isFavorite).toBe(false);
+    expect(findRecipeByIdForUserMock).toHaveBeenCalledWith(
+      'recipe-1',
+      'user-1',
+    );
   });
 
   it('hides an unpublished recipe from a regular user', async () => {
-    findRecipeByIdMock.mockResolvedValue(unpublishedRecipeDetail);
+    findRecipeByIdForUserMock.mockResolvedValue({
+      ...unpublishedRecipeDetail,
+      favorites: [],
+    });
 
     await expect(
-      getRecipeByIdForUser('recipe-2', 'USER'),
+      getRecipeByIdForUser('recipe-2', 'user-1', 'USER'),
     ).rejects.toMatchObject({
       statusCode: 404,
       code: 'RECIPE_NOT_FOUND',
@@ -244,19 +260,22 @@ describe('getRecipeByIdForUser', () => {
   });
 
   it('returns an unpublished recipe to an admin', async () => {
-    findRecipeByIdMock.mockResolvedValue(unpublishedRecipeDetail);
+    findRecipeByIdForUserMock.mockResolvedValue({
+      ...unpublishedRecipeDetail,
+      favorites: [],
+    });
 
-    const result = await getRecipeByIdForUser('recipe-2', 'ADMIN');
+    const result = await getRecipeByIdForUser('recipe-2', 'admin-1', 'ADMIN');
 
     expect(result.id).toBe('recipe-2');
     expect(result.isPublished).toBe(false);
   });
 
   it('throws RECIPE_NOT_FOUND when the recipe does not exist', async () => {
-    findRecipeByIdMock.mockResolvedValue(null);
+    findRecipeByIdForUserMock.mockResolvedValue(null);
 
     await expect(
-      getRecipeByIdForUser('missing-recipe', 'ADMIN'),
+      getRecipeByIdForUser('missing-recipe', 'admin-1', 'ADMIN'),
     ).rejects.toMatchObject({
       statusCode: 404,
       code: 'RECIPE_NOT_FOUND',
@@ -264,9 +283,9 @@ describe('getRecipeByIdForUser', () => {
   });
 
   it('converts a Decimal quantity to a plain JSON-safe number', async () => {
-    findRecipeByIdMock.mockResolvedValue(publishedRecipeDetail);
+    findRecipeByIdForUserMock.mockResolvedValue(publishedRecipeDetailForUser);
 
-    const result = await getRecipeByIdForUser('recipe-1', 'ADMIN');
+    const result = await getRecipeByIdForUser('recipe-1', 'admin-1', 'ADMIN');
 
     expect(result.ingredients[0]).toEqual({
       id: 'recipe-ingredient-1',
@@ -276,6 +295,22 @@ describe('getRecipeByIdForUser', () => {
       unit: 'cup',
       category: 'MAIN',
     });
+  });
+
+  it('maps a filtered favorite relation to isFavorite true', async () => {
+    findRecipeByIdForUserMock.mockResolvedValue({
+      ...publishedRecipeDetailForUser,
+      favorites: [{ id: 'favorite-1' }],
+    });
+
+    const result = await getRecipeByIdForUser(
+      'recipe-1',
+      'user-1',
+      'USER',
+    );
+
+    expect(result.isFavorite).toBe(true);
+    expect(result).not.toHaveProperty('favorites');
   });
 });
 

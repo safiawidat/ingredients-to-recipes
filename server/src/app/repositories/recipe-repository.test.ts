@@ -34,6 +34,7 @@ import {
   findPublishedRecipes,
   findPublishedRecipesWithIngredients,
   findRecipeById,
+  findRecipeByIdForUser,
   updateRecipe,
 } from './recipe-repository.js';
 
@@ -247,6 +248,32 @@ describe('findRecipeById', () => {
     findUniqueRecipeMock.mockResolvedValue(null);
 
     await expect(findRecipeById('missing-recipe')).resolves.toBeNull();
+  });
+});
+
+describe('findRecipeByIdForUser', () => {
+  it('loads detail and filtered favorite state in the same query', async () => {
+    const detailForUser = {
+      ...recipeDetail,
+      favorites: [{ id: 'favorite-1' }],
+    };
+    findUniqueRecipeMock.mockResolvedValue(detailForUser);
+
+    await expect(
+      findRecipeByIdForUser('recipe-1', 'user-1'),
+    ).resolves.toEqual(detailForUser);
+
+    expect(findUniqueRecipeMock).toHaveBeenCalledTimes(1);
+    expect(findUniqueRecipeMock).toHaveBeenCalledWith({
+      where: { id: 'recipe-1' },
+      select: expect.objectContaining({
+        ingredients: expect.any(Object),
+        favorites: {
+          where: { userId: 'user-1' },
+          select: { id: true },
+        },
+      }),
+    });
   });
 });
 

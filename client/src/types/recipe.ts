@@ -32,6 +32,10 @@ export interface RecipeDetail extends RecipeSummary {
   ingredients: RecipeIngredient[];
 }
 
+export interface AuthenticatedRecipeDetail extends RecipeDetail {
+  isFavorite: boolean;
+}
+
 export interface RecipePagination {
   page: number;
   pageSize: number;
@@ -49,6 +53,12 @@ export interface RecipeListResponse {
 export interface RecipeResponse {
   data: {
     recipe: RecipeDetail;
+  };
+}
+
+export interface AuthenticatedRecipeResponse {
+  data: {
+    recipe: AuthenticatedRecipeDetail;
   };
 }
 

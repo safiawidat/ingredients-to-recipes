@@ -6,12 +6,13 @@ import {
   createRecipe as createRecipeInRepository,
   findAllRecipes,
   findPublishedRecipes,
-  findRecipeById,
+  findRecipeByIdForUser as findRecipeByIdForUserInRepository,
   updateRecipe as updateRecipeInRepository,
 } from '../repositories/recipe-repository.js';
 import type {
   CreateRecipeInput as RepositoryCreateRecipeInput,
   RecipeDetail,
+  RecipeDetailForUser,
   RecipeIngredientDetail,
   RecipeIngredientInput as RepositoryRecipeIngredientInput,
   RecipeListParams as RepositoryRecipeListParams,
@@ -112,6 +113,10 @@ export interface RecipeDto {
   ingredients: RecipeIngredientDto[];
 }
 
+export interface UserRecipeDto extends RecipeDto {
+  isFavorite: boolean;
+}
+
 const recipeNotFoundError = (): ApplicationError =>
   new ApplicationError(
     404,
@@ -185,6 +190,11 @@ const toRecipeDto = (recipe: RecipeDetail): RecipeDto => ({
   createdAt: recipe.createdAt,
   updatedAt: recipe.updatedAt,
   ingredients: recipe.ingredients.map(toRecipeIngredientDto),
+});
+
+const toUserRecipeDto = (recipe: RecipeDetailForUser): UserRecipeDto => ({
+  ...toRecipeDto(recipe),
+  isFavorite: recipe.favorites.length > 0,
 });
 
 const toRepositoryIngredientInput = (
@@ -314,15 +324,16 @@ export const listAllRecipes = (
 
 export const getRecipeByIdForUser = async (
   id: string,
+  userId: string,
   requesterRole: UserRole,
-): Promise<RecipeDto> => {
-  const recipe = await findRecipeById(id);
+): Promise<UserRecipeDto> => {
+  const recipe = await findRecipeByIdForUserInRepository(id, userId);
 
   if (!recipe || (!recipe.isPublished && requesterRole !== UserRole.ADMIN)) {
     throw recipeNotFoundError();
   }
 
-  return toRecipeDto(recipe);
+  return toUserRecipeDto(recipe);
 };
 
 export const createRecipe = async (

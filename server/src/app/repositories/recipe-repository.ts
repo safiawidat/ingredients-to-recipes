@@ -46,6 +46,10 @@ export interface RecipeDetail {
   ingredients: RecipeIngredientDetail[];
 }
 
+export interface RecipeDetailForUser extends RecipeDetail {
+  favorites: { id: string }[];
+}
+
 export interface RecipeIngredientInput {
   ingredientId: string;
   quantity?: number;
@@ -229,6 +233,24 @@ export const findRecipeById = async (
   const recipe = await prisma.recipe.findUnique({
     where: { id },
     select: recipeDetailSelect,
+  });
+
+  return recipe;
+};
+
+export const findRecipeByIdForUser = async (
+  id: string,
+  userId: string,
+): Promise<RecipeDetailForUser | null> => {
+  const recipe = await prisma.recipe.findUnique({
+    where: { id },
+    select: {
+      ...recipeDetailSelect,
+      favorites: {
+        where: { userId },
+        select: { id: true },
+      },
+    },
   });
 
   return recipe;

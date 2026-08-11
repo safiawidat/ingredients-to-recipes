@@ -7,12 +7,14 @@ const {
   getRecipeMock,
   listAdminRecipesMock,
   listRecipesMock,
+  recommendRecipesMock,
   updateRecipeMock,
 } = vi.hoisted(() => ({
   createRecipeMock: vi.fn(),
   getRecipeMock: vi.fn(),
   listAdminRecipesMock: vi.fn(),
   listRecipesMock: vi.fn(),
+  recommendRecipesMock: vi.fn(),
   updateRecipeMock: vi.fn(),
 }));
 
@@ -25,6 +27,10 @@ vi.mock('./services/admin-recipe-api', () => ({
   createRecipe: createRecipeMock,
   listAdminRecipes: listAdminRecipesMock,
   updateRecipe: updateRecipeMock,
+}));
+
+vi.mock('./services/recommendation-api', () => ({
+  recommendRecipes: recommendRecipesMock,
 }));
 
 import App from './App';
@@ -85,6 +91,26 @@ const renderAuthenticatedApp = (path: string, user = regularUser) =>
     </AuthContext.Provider>,
   );
 
+const renderUnauthenticatedApp = (path: string) =>
+  render(
+    <AuthContext.Provider
+      value={{
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+        login: vi.fn(),
+        register: vi.fn(),
+        logout: vi.fn(),
+        refreshUser: vi.fn(),
+      }}
+    >
+      <MemoryRouter initialEntries={[path]}>
+        <App />
+      </MemoryRouter>
+    </AuthContext.Provider>,
+  );
+
 describe('App', () => {
   it('renders the catch-all not-found route', () => {
     render(
@@ -129,5 +155,32 @@ describe('App', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Admin Recipes' }),
     ).toBeInTheDocument();
+  });
+
+  it('lets an authenticated user reach recommendations', () => {
+    renderAuthenticatedApp('/recommendations');
+
+    expect(
+      screen.getByRole('heading', { name: 'Recipe recommendations' }),
+    ).toBeInTheDocument();
+  });
+
+  it('lets an authenticated admin reach recommendations', () => {
+    renderAuthenticatedApp('/recommendations', {
+      ...regularUser,
+      role: 'ADMIN',
+    });
+
+    expect(
+      screen.getByRole('heading', { name: 'Recipe recommendations' }),
+    ).toBeInTheDocument();
+  });
+
+  it('protects recommendations from unauthenticated visitors', () => {
+    renderUnauthenticatedApp('/recommendations');
+
+    expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Recipe recommendations' }))
+      .not.toBeInTheDocument();
   });
 });

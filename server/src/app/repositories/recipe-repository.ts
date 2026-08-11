@@ -93,6 +93,24 @@ export interface RecipeListResult {
   total: number;
 }
 
+export interface PublishedRecipeWithIngredients {
+  id: string;
+  name: string;
+  description: string | null;
+  cuisine: string | null;
+  preparationTime: number | null;
+  servings: number | null;
+  imageUrl: string | null;
+  dietTags: string[];
+  allergens: string[];
+  ingredients: {
+    ingredient: {
+      id: string;
+      name: string;
+    };
+  }[];
+}
+
 const recipeSummarySelect = {
   id: true,
   name: true,
@@ -129,6 +147,25 @@ const recipeDetailSelect = {
       quantity: true,
       unit: true,
       category: true,
+      ingredient: {
+        select: { id: true, name: true },
+      },
+    },
+  },
+} as const;
+
+const publishedRecipeWithIngredientsSelect = {
+  id: true,
+  name: true,
+  description: true,
+  cuisine: true,
+  preparationTime: true,
+  servings: true,
+  imageUrl: true,
+  dietTags: true,
+  allergens: true,
+  ingredients: {
+    select: {
       ingredient: {
         select: { id: true, name: true },
       },
@@ -176,6 +213,15 @@ export const findPublishedRecipes = (
 export const findAllRecipes = (
   params: RecipeListParams,
 ): Promise<RecipeListResult> => findRecipes(params, {});
+
+export const findPublishedRecipesWithIngredients = (): Promise<
+  PublishedRecipeWithIngredients[]
+> =>
+  prisma.recipe.findMany({
+    where: { isPublished: true },
+    orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    select: publishedRecipeWithIngredientsSelect,
+  });
 
 export const findRecipeById = async (
   id: string,

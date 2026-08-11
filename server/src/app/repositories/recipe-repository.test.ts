@@ -32,6 +32,7 @@ import {
   createRecipe,
   findAllRecipes,
   findPublishedRecipes,
+  findPublishedRecipesWithIngredients,
   findRecipeById,
   updateRecipe,
 } from './recipe-repository.js';
@@ -80,6 +81,23 @@ const recipeDetail = {
   ],
 };
 
+const publishedRecipeWithIngredients = {
+  id: 'recipe-1',
+  name: 'Tomato Soup',
+  description: 'A warm soup',
+  cuisine: 'Italian',
+  preparationTime: 20,
+  servings: 4,
+  imageUrl: null,
+  dietTags: ['vegetarian'],
+  allergens: [],
+  ingredients: [
+    {
+      ingredient: { id: 'ingredient-1', name: 'tomato' },
+    },
+  ],
+};
+
 beforeEach(() => {
   vi.resetAllMocks();
 });
@@ -122,6 +140,56 @@ describe('findPublishedRecipes', () => {
     const result = await findPublishedRecipes({ skip: 0, take: 10 });
 
     expect(result).toEqual({ recipes: [], total: 0 });
+  });
+});
+
+describe('findPublishedRecipesWithIngredients', () => {
+  it('fetches every published candidate and canonical ingredient in one unpaginated query', async () => {
+    findManyRecipeMock.mockResolvedValue([publishedRecipeWithIngredients]);
+
+    await findPublishedRecipesWithIngredients();
+
+    expect(findManyRecipeMock).toHaveBeenCalledTimes(1);
+    expect(findManyRecipeMock).toHaveBeenCalledWith({
+      where: { isPublished: true },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        cuisine: true,
+        preparationTime: true,
+        servings: true,
+        imageUrl: true,
+        dietTags: true,
+        allergens: true,
+        ingredients: {
+          select: {
+            ingredient: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
+    });
+    expect(countRecipeMock).not.toHaveBeenCalled();
+
+    const query = findManyRecipeMock.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(query).not.toHaveProperty('skip');
+    expect(query).not.toHaveProperty('take');
+  });
+
+  it('returns the Prisma candidate shape without per-recipe lookups', async () => {
+    findManyRecipeMock.mockResolvedValue([publishedRecipeWithIngredients]);
+
+    await expect(findPublishedRecipesWithIngredients()).resolves.toEqual([
+      publishedRecipeWithIngredients,
+    ]);
+    expect(findManyRecipeMock).toHaveBeenCalledTimes(1);
+    expect(findUniqueRecipeMock).not.toHaveBeenCalled();
   });
 });
 

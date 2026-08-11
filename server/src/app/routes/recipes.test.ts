@@ -58,6 +58,7 @@ const recipeDetail = {
   instructions: 'Simmer everything.',
   sourceUrl: null,
   ingredients: [],
+  isFavorite: false,
 };
 
 beforeEach(() => {
@@ -206,7 +207,11 @@ describe('GET /api/v1/recipes/:id', () => {
       .set('Cookie', userCookie);
 
     expect(response.status).toBe(200);
-    expect(getRecipeByIdForUserMock).toHaveBeenCalledWith('recipe-1', 'USER');
+    expect(getRecipeByIdForUserMock).toHaveBeenCalledWith(
+      'recipe-1',
+      'user-1',
+      'USER',
+    );
     expect(response.body).toEqual({
       data: {
         recipe: {
@@ -232,6 +237,7 @@ describe('GET /api/v1/recipes/:id', () => {
     expect(response.status).toBe(200);
     expect(getRecipeByIdForUserMock).toHaveBeenCalledWith(
       'recipe-1',
+      'admin-1',
       'ADMIN',
     );
     expect(response.body.data.recipe.isPublished).toBe(false);
@@ -277,6 +283,7 @@ describe('GET /api/v1/recipes/:id', () => {
     expect(response.status).toBe(404);
     expect(getRecipeByIdForUserMock).toHaveBeenCalledWith(
       'unpublished-recipe',
+      'user-1',
       'USER',
     );
   });

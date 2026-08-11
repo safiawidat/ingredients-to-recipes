@@ -4,19 +4,29 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../lib/api';
-import type { RecipeDetail, RecipeResponse } from '../types/recipe';
+import type {
+  AuthenticatedRecipeDetail,
+  AuthenticatedRecipeResponse,
+} from '../types/recipe';
 
-const { getRecipeMock } = vi.hoisted(() => ({
+const { favoriteRecipeMock, getRecipeMock, unfavoriteRecipeMock } = vi.hoisted(() => ({
+  favoriteRecipeMock: vi.fn(),
   getRecipeMock: vi.fn(),
+  unfavoriteRecipeMock: vi.fn(),
 }));
 
 vi.mock('../services/recipe-api', () => ({
   getRecipe: getRecipeMock,
 }));
 
+vi.mock('../services/favorite-api', () => ({
+  favoriteRecipe: favoriteRecipeMock,
+  unfavoriteRecipe: unfavoriteRecipeMock,
+}));
+
 import { RecipeDetailPage } from './RecipeDetailPage';
 
-const recipe: RecipeDetail = {
+const recipe: AuthenticatedRecipeDetail = {
   id: 'recipe-1',
   name: 'Tomato Soup',
   description: 'A warm and simple soup.',
@@ -41,9 +51,12 @@ const recipe: RecipeDetail = {
       category: 'MAIN',
     },
   ],
+  isFavorite: false,
 };
 
-const responseFor = (value: RecipeDetail): RecipeResponse => ({
+const responseFor = (
+  value: AuthenticatedRecipeDetail,
+): AuthenticatedRecipeResponse => ({
   data: { recipe: value },
 });
 
@@ -98,6 +111,8 @@ describe('RecipeDetailPage', () => {
       'src',
       'https://example.com/tomato-soup.jpg',
     );
+    expect(screen.getByRole('button', { name: 'Add to favorites' }))
+      .toHaveAttribute('aria-pressed', 'false');
   });
 
   it('handles nullable and unsafe optional values without broken output', async () => {
@@ -171,5 +186,103 @@ describe('RecipeDetailPage', () => {
     ).toBeInTheDocument();
     expect(getRecipeMock).toHaveBeenCalledTimes(2);
     expect(getRecipeMock).toHaveBeenLastCalledWith('recipe-1');
+  });
+
+  it('shows initial favorite state from the backend', async () => {
+    getRecipeMock.mockResolvedValue(
+      responseFor({ ...recipe, isFavorite: true }),
+    );
+
+    renderPage();
+
+    expect(
+      await screen.findByRole('button', { name: 'Remove from favorites' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('adds a favorite and updates local state on success', async () => {
+    const user = userEvent.setup();
+    getRecipeMock.mockResolvedValue(responseFor(recipe));
+    favoriteRecipeMock.mockResolvedValue(undefined);
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Add to favorites' }),
+    );
+
+    expect(favoriteRecipeMock).toHaveBeenCalledWith('recipe-1');
+    expect(screen.getByRole('button', { name: 'Remove from favorites' }))
+      .toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('status')).toHaveTextContent('Added to favorites');
+  });
+
+  it('removes a favorite and updates local state on success', async () => {
+    const user = userEvent.setup();
+    getRecipeMock.mockResolvedValue(
+      responseFor({ ...recipe, isFavorite: true }),
+    );
+    unfavoriteRecipeMock.mockResolvedValue(undefined);
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Remove from favorites' }),
+    );
+
+    expect(unfavoriteRecipeMock).toHaveBeenCalledWith('recipe-1');
+    expect(screen.getByRole('button', { name: 'Add to favorites' }))
+      .toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('disables a pending toggle and prevents duplicate requests', async () => {
+    const user = userEvent.setup();
+    let resolveFavorite!: () => void;
+    favoriteRecipeMock.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveFavorite = resolve;
+      }),
+    );
+    getRecipeMock.mockResolvedValue(responseFor(recipe));
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Add to favorites' }),
+    );
+
+    const pendingButton = screen.getByRole('button', { name: 'Saving...' });
+    expect(pendingButton).toBeDisabled();
+    await user.click(pendingButton);
+    expect(favoriteRecipeMock).toHaveBeenCalledOnce();
+
+    resolveFavorite();
+    expect(
+      await screen.findByRole('button', { name: 'Remove from favorites' }),
+    ).toBeEnabled();
+  });
+
+  it('preserves state after failure and allows retry', async () => {
+    const user = userEvent.setup();
+    favoriteRecipeMock
+      .mockRejectedValueOnce(new Error('private failure'))
+      .mockResolvedValueOnce(undefined);
+    getRecipeMock.mockResolvedValue(responseFor(recipe));
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Add to favorites' }),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Unable to update this favorite',
+    );
+    expect(screen.getByRole('button', { name: 'Add to favorites' }))
+      .toHaveAttribute('aria-pressed', 'false');
+    expect(document.body.textContent).not.toContain('private failure');
+
+    await user.click(screen.getByRole('button', { name: 'Add to favorites' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'Remove from favorites' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(favoriteRecipeMock).toHaveBeenCalledTimes(2);
   });
 });

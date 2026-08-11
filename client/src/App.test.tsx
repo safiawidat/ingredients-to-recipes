@@ -4,18 +4,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   createRecipeMock,
+  getFavoritesMock,
   getRecipeMock,
   listAdminRecipesMock,
   listRecipesMock,
   recommendRecipesMock,
   updateRecipeMock,
+  unfavoriteRecipeMock,
 } = vi.hoisted(() => ({
   createRecipeMock: vi.fn(),
+  getFavoritesMock: vi.fn(),
   getRecipeMock: vi.fn(),
   listAdminRecipesMock: vi.fn(),
   listRecipesMock: vi.fn(),
   recommendRecipesMock: vi.fn(),
   updateRecipeMock: vi.fn(),
+  unfavoriteRecipeMock: vi.fn(),
 }));
 
 vi.mock('./services/recipe-api', () => ({
@@ -31,6 +35,12 @@ vi.mock('./services/admin-recipe-api', () => ({
 
 vi.mock('./services/recommendation-api', () => ({
   recommendRecipes: recommendRecipesMock,
+}));
+
+vi.mock('./services/favorite-api', () => ({
+  favoriteRecipe: vi.fn(),
+  getFavorites: getFavoritesMock,
+  unfavoriteRecipe: unfavoriteRecipeMock,
 }));
 
 import App from './App';
@@ -69,6 +79,7 @@ beforeEach(() => {
       },
     },
   });
+  getFavoritesMock.mockResolvedValue({ data: { recipes: [] } });
 });
 
 const renderAuthenticatedApp = (path: string, user = regularUser) =>
@@ -182,5 +193,29 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Recipe recommendations' }))
       .not.toBeInTheDocument();
+  });
+
+  it('lets an authenticated user reach favorites', async () => {
+    renderAuthenticatedApp('/favorites');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Favorites' }),
+    ).toBeInTheDocument();
+  });
+
+  it('lets an authenticated admin reach favorites', async () => {
+    renderAuthenticatedApp('/favorites', { ...regularUser, role: 'ADMIN' });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Favorites' }),
+    ).toBeInTheDocument();
+  });
+
+  it('protects favorites from unauthenticated visitors', () => {
+    renderUnauthenticatedApp('/favorites');
+
+    expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Favorites' })).not
+      .toBeInTheDocument();
   });
 });

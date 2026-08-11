@@ -44,6 +44,7 @@ const renderAppShell = (
               path="/recommendations"
               element={<p>Recommendations page content</p>}
             />
+            <Route path="/favorites" element={<p>Favorites page content</p>} />
           </Route>
           <Route path="/login" element={<p>Login destination</p>} />
         </Routes>
@@ -61,6 +62,10 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: 'Recipes' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Recommendations' }))
       .toHaveAttribute('href', '/recommendations');
+    expect(screen.getByRole('link', { name: 'Favorites' })).toHaveAttribute(
+      'href',
+      '/favorites',
+    );
     expect(screen.getByText('Test User')).toBeInTheDocument();
     expect(screen.getByText('USER')).toBeInTheDocument();
     expect(screen.getByText('Page content')).toBeInTheDocument();
@@ -89,6 +94,7 @@ describe('AppShell', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Recommendations' }))
       .toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Favorites' })).toBeInTheDocument();
   });
 
   it('marks recommendations active on its route', () => {
@@ -98,6 +104,16 @@ describe('AppShell', () => {
       .toHaveAttribute('aria-current', 'page');
     expect(screen.getByText('Recommendations page content'))
       .toBeInTheDocument();
+  });
+
+  it('marks favorites active on its route', () => {
+    renderAppShell(authenticatedUser, vi.fn(), '/favorites');
+
+    expect(screen.getByRole('link', { name: 'Favorites' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByText('Favorites page content')).toBeInTheDocument();
   });
 
   it('logs out and navigates to login', async () => {

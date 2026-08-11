@@ -5,6 +5,7 @@ import { AdminRoute } from './components/AdminRoute';
 import { AppShell } from './components/AppShell';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { HomePage } from './pages/HomePage';
+import { FavoritesPage } from './pages/FavoritesPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { RecipeDetailPage } from './pages/RecipeDetailPage';
@@ -28,6 +29,7 @@ function App() {
           <Route path="/recipes" element={<RecipesPage />} />
           <Route path="/recipes/:id" element={<RecipeDetailPage />} />
           <Route path="/recommendations" element={<RecommendationsPage />} />
+          <Route path="/favorites" element={<FavoritesPage />} />
 
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminDashboardPage />} />

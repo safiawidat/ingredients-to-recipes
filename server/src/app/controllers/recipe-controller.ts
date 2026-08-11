@@ -50,7 +50,11 @@ export const getRecipe: RequestHandler = async (request, response) => {
     );
   }
 
-  const recipe = await getRecipeByIdForUser(id, request.user.role);
+  const recipe = await getRecipeByIdForUser(
+    id,
+    request.user.id,
+    request.user.role,
+  );
 
   response.status(200).json({
     data: { recipe },

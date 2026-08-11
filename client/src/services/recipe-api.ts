@@ -2,7 +2,7 @@ import { apiRequest } from '../lib/api';
 import type {
   RecipeListParams,
   RecipeListResponse,
-  RecipeResponse,
+  AuthenticatedRecipeResponse,
 } from '../types/recipe';
 
 export const listRecipes = (
@@ -22,5 +22,9 @@ export const listRecipes = (
   return apiRequest<RecipeListResponse>(`/recipes${query ? `?${query}` : ''}`);
 };
 
-export const getRecipe = (id: string): Promise<RecipeResponse> =>
-  apiRequest<RecipeResponse>(`/recipes/${encodeURIComponent(id)}`);
+export const getRecipe = (
+  id: string,
+): Promise<AuthenticatedRecipeResponse> =>
+  apiRequest<AuthenticatedRecipeResponse>(
+    `/recipes/${encodeURIComponent(id)}`,
+  );

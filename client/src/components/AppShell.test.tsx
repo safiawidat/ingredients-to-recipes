@@ -21,6 +21,7 @@ const authenticatedUser: AuthenticatedUser = {
 const renderAppShell = (
   user: AuthenticatedUser,
   logout: AuthContextValue['logout'] = vi.fn(),
+  initialPath = '/',
 ) =>
   render(
     <AuthContext.Provider
@@ -35,10 +36,14 @@ const renderAppShell = (
         refreshUser: vi.fn(),
       }}
     >
-      <MemoryRouter initialEntries={['/']}>
+      <MemoryRouter initialEntries={[initialPath]}>
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<p>Page content</p>} />
+            <Route
+              path="/recommendations"
+              element={<p>Recommendations page content</p>}
+            />
           </Route>
           <Route path="/login" element={<p>Login destination</p>} />
         </Routes>
@@ -54,6 +59,8 @@ describe('AppShell', () => {
       .toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Recipes' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Recommendations' }))
+      .toHaveAttribute('href', '/recommendations');
     expect(screen.getByText('Test User')).toBeInTheDocument();
     expect(screen.getByText('USER')).toBeInTheDocument();
     expect(screen.getByText('Page content')).toBeInTheDocument();
@@ -80,6 +87,17 @@ describe('AppShell', () => {
     expect(
       screen.getByRole('link', { name: 'Ingredient Aliases' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Recommendations' }))
+      .toBeInTheDocument();
+  });
+
+  it('marks recommendations active on its route', () => {
+    renderAppShell(authenticatedUser, vi.fn(), '/recommendations');
+
+    expect(screen.getByRole('link', { name: 'Recommendations' }))
+      .toHaveAttribute('aria-current', 'page');
+    expect(screen.getByText('Recommendations page content'))
+      .toBeInTheDocument();
   });
 
   it('logs out and navigates to login', async () => {

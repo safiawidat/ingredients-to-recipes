@@ -53,6 +53,9 @@ export const AppShell = () => {
             <NavLink className={getNavLinkClassName} to="/favorites">
               Favorites
             </NavLink>
+            <NavLink className={getNavLinkClassName} to="/history">
+              History
+            </NavLink>
             {isAdmin && (
               <>
                 <NavLink className={getNavLinkClassName} end to="/admin">

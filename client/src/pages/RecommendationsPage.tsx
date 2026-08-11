@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 import { ApiError } from '../lib/api';
 import { getSafeHttpUrl } from '../lib/safe-url';
@@ -14,6 +14,34 @@ const MAX_INGREDIENT_LENGTH = 100;
 const DEFAULT_LIMIT = 5;
 const LIMIT_OPTIONS = [5, 10, 20] as const;
 const NO_RECOGNIZED_INGREDIENTS = 'NO_RECOGNIZED_INGREDIENTS';
+
+interface RecommendationPrefill {
+  ingredients: string[];
+  limit: (typeof LIMIT_OPTIONS)[number];
+}
+
+const getRecommendationPrefill = (
+  state: unknown,
+): RecommendationPrefill | null => {
+  if (typeof state !== 'object' || state === null) {
+    return null;
+  }
+
+  const { ingredients, limit } = state as Record<string, unknown>;
+
+  if (
+    !Array.isArray(ingredients) ||
+    !ingredients.every((ingredient) => typeof ingredient === 'string') ||
+    !LIMIT_OPTIONS.some((option) => option === limit)
+  ) {
+    return null;
+  }
+
+  return {
+    ingredients,
+    limit: limit as RecommendationPrefill['limit'],
+  };
+};
 
 const parseIngredients = (value: string): string[] =>
   value
@@ -70,8 +98,14 @@ const IngredientGroup = ({
 );
 
 export const RecommendationsPage = () => {
-  const [inputText, setInputText] = useState('');
-  const [limit, setLimit] = useState<number>(DEFAULT_LIMIT);
+  const location = useLocation();
+  const [prefill] = useState(() => getRecommendationPrefill(location.state));
+  const [inputText, setInputText] = useState(() =>
+    prefill?.ingredients.join('\n') ?? '',
+  );
+  const [limit, setLimit] = useState<number>(
+    prefill?.limit ?? DEFAULT_LIMIT,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<

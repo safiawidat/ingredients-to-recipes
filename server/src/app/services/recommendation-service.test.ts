@@ -1,13 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+  createRecommendationHistoryMock,
   findIngredientsByNormalizedValuesMock,
   findPublishedRecipesWithIngredientsMock,
   findKNearestRecipesMock,
 } = vi.hoisted(() => ({
+  createRecommendationHistoryMock: vi.fn(),
   findIngredientsByNormalizedValuesMock: vi.fn(),
   findPublishedRecipesWithIngredientsMock: vi.fn(),
   findKNearestRecipesMock: vi.fn(),
+}));
+
+vi.mock('../repositories/recommendation-history-repository.js', () => ({
+  createRecommendationHistory: createRecommendationHistoryMock,
 }));
 
 vi.mock('./ingredient-lookup-service.js', () => ({
@@ -48,6 +54,7 @@ const repositoryCandidate = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  createRecommendationHistoryMock.mockResolvedValue({});
   findPublishedRecipesWithIngredientsMock.mockResolvedValue([]);
   findKNearestRecipesMock.mockReturnValue([]);
 });
@@ -61,7 +68,7 @@ describe('recommendRecipes', () => {
       ]),
     );
 
-    const result = await recommendRecipes({
+    const result = await recommendRecipes('user-1', {
       ingredients: [' Tomatoes ', '  olive   oil '],
       limit: 5,
     });
@@ -78,7 +85,7 @@ describe('recommendRecipes', () => {
       new Map([['garbanzo bean', chickpea]]),
     );
 
-    const result = await recommendRecipes({
+    const result = await recommendRecipes('user-1', {
       ingredients: ['Garbanzo Bean'],
       limit: 5,
     });
@@ -95,7 +102,7 @@ describe('recommendRecipes', () => {
       ]),
     );
 
-    const result = await recommendRecipes({
+    const result = await recommendRecipes('user-1', {
       ingredients: ['chickpea', 'chickpeas', 'garbanzo bean'],
       limit: 5,
     });
@@ -118,7 +125,7 @@ describe('recommendRecipes', () => {
       ]),
     );
 
-    const result = await recommendRecipes({
+    const result = await recommendRecipes('user-1', {
       ingredients: [
         'garbanzo bean',
         'tomato',
@@ -143,7 +150,7 @@ describe('recommendRecipes', () => {
       ]),
     );
 
-    const result = await recommendRecipes({
+    const result = await recommendRecipes('user-1', {
       ingredients: ['Tomato', '  Dragon   Fruit '],
       limit: 5,
     });
@@ -159,7 +166,7 @@ describe('recommendRecipes', () => {
       ]),
     );
 
-    const result = await recommendRecipes({
+    const result = await recommendRecipes('user-1', {
       ingredients: ['tomato', 'Dragon Fruit', '  dragon   fruit '],
       limit: 5,
     });
@@ -181,7 +188,7 @@ describe('recommendRecipes', () => {
     );
     findKNearestRecipesMock.mockReturnValue(engineResults);
 
-    const result = await recommendRecipes({
+    const result = await recommendRecipes('user-1', {
       ingredients: ['tomato', 'mystery item'],
       limit: 3,
     });
@@ -195,7 +202,7 @@ describe('recommendRecipes', () => {
       new Map([['unknown', null]]),
     );
 
-    const promise = recommendRecipes({
+    const promise = recommendRecipes('user-1', {
       ingredients: ['Unknown'],
       limit: 5,
     });
@@ -208,6 +215,7 @@ describe('recommendRecipes', () => {
     });
     expect(findPublishedRecipesWithIngredientsMock).not.toHaveBeenCalled();
     expect(findKNearestRecipesMock).not.toHaveBeenCalled();
+    expect(createRecommendationHistoryMock).not.toHaveBeenCalled();
   });
 
   it('fetches published recipe candidates exactly once for valid input', async () => {
@@ -215,7 +223,7 @@ describe('recommendRecipes', () => {
       new Map([['tomato', tomato]]),
     );
 
-    await recommendRecipes({ ingredients: ['tomato'], limit: 5 });
+    await recommendRecipes('user-1', { ingredients: ['tomato'], limit: 5 });
 
     expect(findPublishedRecipesWithIngredientsMock).toHaveBeenCalledTimes(1);
     expect(findPublishedRecipesWithIngredientsMock).toHaveBeenCalledWith();
@@ -229,7 +237,7 @@ describe('recommendRecipes', () => {
       repositoryCandidate,
     ]);
 
-    await recommendRecipes({ ingredients: ['tomato'], limit: 5 });
+    await recommendRecipes('user-1', { ingredients: ['tomato'], limit: 5 });
 
     expect(findKNearestRecipesMock).toHaveBeenCalledWith({
       userIngredientIds: new Set(['ingredient-tomato']),
@@ -258,7 +266,10 @@ describe('recommendRecipes', () => {
       new Map([['tomato', tomato]]),
     );
 
-    await recommendRecipes({ ingredients: ['tomato'], limit: 7.5 });
+    await recommendRecipes('user-1', {
+      ingredients: ['tomato'],
+      limit: 7.5,
+    });
 
     expect(findKNearestRecipesMock).toHaveBeenCalledWith(
       expect.objectContaining({ limit: 7.5 }),
@@ -275,12 +286,123 @@ describe('recommendRecipes', () => {
     );
     findKNearestRecipesMock.mockReturnValue(engineResults);
 
-    const result = await recommendRecipes({
+    const result = await recommendRecipes('user-1', {
       ingredients: ['tomato'],
       limit: 5,
     });
 
     expect(result.recommendations).toBe(engineResults);
+  });
+
+  it('persists normalized search data and ordered recommendation IDs', async () => {
+    const engineResults = [
+      { recipe: { id: 'recipe-2' } },
+      { recipe: { id: 'recipe-1' } },
+    ];
+    findIngredientsByNormalizedValuesMock.mockResolvedValue(
+      new Map([
+        ['tomato', tomato],
+        ['garbanzo bean', chickpea],
+        ['mystery item', null],
+      ]),
+    );
+    findKNearestRecipesMock.mockReturnValue(engineResults);
+
+    const result = await recommendRecipes('user-1', {
+      ingredients: [
+        ' Tomato ',
+        'tomato',
+        ' Garbanzo   Bean ',
+        'Mystery Item',
+      ],
+      limit: 10,
+    });
+
+    expect(createRecommendationHistoryMock).toHaveBeenCalledWith({
+      userId: 'user-1',
+      inputIngredients: ['tomato', 'garbanzo bean', 'mystery item'],
+      filters: { limit: 10 },
+      results: {
+        recognizedIngredients: ['tomato', 'chickpea'],
+        unknownIngredients: ['mystery item'],
+        recipeIds: ['recipe-2', 'recipe-1'],
+      },
+    });
+    expect(result.recommendations).toBe(engineResults);
+  });
+
+  it('persists successful zero-result searches', async () => {
+    findIngredientsByNormalizedValuesMock.mockResolvedValue(
+      new Map([['tomato', tomato]]),
+    );
+
+    await recommendRecipes('user-1', {
+      ingredients: ['tomato'],
+      limit: 5,
+    });
+
+    expect(createRecommendationHistoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        results: expect.objectContaining({ recipeIds: [] }),
+      }),
+    );
+  });
+
+  it('persists repeated successful searches independently', async () => {
+    findIngredientsByNormalizedValuesMock.mockResolvedValue(
+      new Map([['tomato', tomato]]),
+    );
+
+    await recommendRecipes('user-1', {
+      ingredients: ['tomato'],
+      limit: 5,
+    });
+    await recommendRecipes('user-1', {
+      ingredients: ['tomato'],
+      limit: 5,
+    });
+
+    expect(createRecommendationHistoryMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not persist when candidate lookup fails', async () => {
+    const error = new Error('candidate lookup failed');
+    findIngredientsByNormalizedValuesMock.mockResolvedValue(
+      new Map([['tomato', tomato]]),
+    );
+    findPublishedRecipesWithIngredientsMock.mockRejectedValue(error);
+
+    await expect(
+      recommendRecipes('user-1', { ingredients: ['tomato'], limit: 5 }),
+    ).rejects.toBe(error);
+    expect(createRecommendationHistoryMock).not.toHaveBeenCalled();
+  });
+
+  it('does not persist when recommendation processing fails', async () => {
+    const error = new Error('KNN failed');
+    findIngredientsByNormalizedValuesMock.mockResolvedValue(
+      new Map([['tomato', tomato]]),
+    );
+    findKNearestRecipesMock.mockImplementation(() => {
+      throw error;
+    });
+
+    await expect(
+      recommendRecipes('user-1', { ingredients: ['tomato'], limit: 5 }),
+    ).rejects.toBe(error);
+    expect(createRecommendationHistoryMock).not.toHaveBeenCalled();
+  });
+
+  it('propagates history failures instead of returning false success', async () => {
+    const error = new Error('history write failed');
+    findIngredientsByNormalizedValuesMock.mockResolvedValue(
+      new Map([['tomato', tomato]]),
+    );
+    createRecommendationHistoryMock.mockRejectedValue(error);
+
+    await expect(
+      recommendRecipes('user-1', { ingredients: ['tomato'], limit: 5 }),
+    ).rejects.toBe(error);
   });
 
   it('returns a successful empty recommendation list when the engine finds no overlap', async () => {
@@ -290,7 +412,7 @@ describe('recommendRecipes', () => {
     findKNearestRecipesMock.mockReturnValue([]);
 
     await expect(
-      recommendRecipes({ ingredients: ['tomato'], limit: 5 }),
+      recommendRecipes('user-1', { ingredients: ['tomato'], limit: 5 }),
     ).resolves.toEqual({
       recognizedIngredients: [tomato],
       unknownIngredients: [],
@@ -307,7 +429,7 @@ describe('recommendRecipes', () => {
       ]),
     );
 
-    await recommendRecipes({
+    await recommendRecipes('user-1', {
       ingredients: ['Tomato', 'Olive Oil', 'Unknown'],
       limit: 5,
     });
@@ -324,7 +446,7 @@ describe('recommendRecipes', () => {
     'throws the same application error when normalization removes every input',
     async (ingredients) => {
       await expect(
-        recommendRecipes({ ingredients, limit: 5 }),
+        recommendRecipes('user-1', { ingredients, limit: 5 }),
       ).rejects.toMatchObject({
         statusCode: 400,
         code: 'NO_RECOGNIZED_INGREDIENTS',
@@ -334,6 +456,7 @@ describe('recommendRecipes', () => {
       expect(findIngredientsByNormalizedValuesMock).not.toHaveBeenCalled();
       expect(findPublishedRecipesWithIngredientsMock).not.toHaveBeenCalled();
       expect(findKNearestRecipesMock).not.toHaveBeenCalled();
+      expect(createRecommendationHistoryMock).not.toHaveBeenCalled();
     },
   );
 
@@ -342,8 +465,9 @@ describe('recommendRecipes', () => {
     findIngredientsByNormalizedValuesMock.mockRejectedValue(lookupError);
 
     await expect(
-      recommendRecipes({ ingredients: ['tomato'], limit: 5 }),
+      recommendRecipes('user-1', { ingredients: ['tomato'], limit: 5 }),
     ).rejects.toBe(lookupError);
     expect(findPublishedRecipesWithIngredientsMock).not.toHaveBeenCalled();
+    expect(createRecommendationHistoryMock).not.toHaveBeenCalled();
   });
 });

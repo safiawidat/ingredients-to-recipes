@@ -109,7 +109,7 @@ describe('POST /api/v1/recommendations', () => {
       .set('Cookie', userCookie)
       .send({ ingredients: [' Tomato '] });
 
-    expect(recommendRecipesMock).toHaveBeenCalledWith({
+    expect(recommendRecipesMock).toHaveBeenCalledWith('user-1', {
       ingredients: [' Tomato '],
       limit: 5,
     });
@@ -123,7 +123,7 @@ describe('POST /api/v1/recommendations', () => {
       .set('Cookie', userCookie)
       .send({ ingredients: ['tomato'], limit: 3 });
 
-    expect(recommendRecipesMock).toHaveBeenCalledWith({
+    expect(recommendRecipesMock).toHaveBeenCalledWith('user-1', {
       ingredients: ['tomato'],
       limit: 3,
     });

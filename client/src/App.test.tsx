@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   createRecipeMock,
   getFavoritesMock,
+  getRecommendationHistoryMock,
   getRecipeMock,
   listAdminRecipesMock,
   listRecipesMock,
@@ -14,6 +15,7 @@ const {
 } = vi.hoisted(() => ({
   createRecipeMock: vi.fn(),
   getFavoritesMock: vi.fn(),
+  getRecommendationHistoryMock: vi.fn(),
   getRecipeMock: vi.fn(),
   listAdminRecipesMock: vi.fn(),
   listRecipesMock: vi.fn(),
@@ -41,6 +43,10 @@ vi.mock('./services/favorite-api', () => ({
   favoriteRecipe: vi.fn(),
   getFavorites: getFavoritesMock,
   unfavoriteRecipe: unfavoriteRecipeMock,
+}));
+
+vi.mock('./services/recommendation-history-api', () => ({
+  getRecommendationHistory: getRecommendationHistoryMock,
 }));
 
 import App from './App';
@@ -80,6 +86,7 @@ beforeEach(() => {
     },
   });
   getFavoritesMock.mockResolvedValue({ data: { recipes: [] } });
+  getRecommendationHistoryMock.mockResolvedValue({ data: { history: [] } });
 });
 
 const renderAuthenticatedApp = (path: string, user = regularUser) =>
@@ -216,6 +223,25 @@ describe('App', () => {
 
     expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Favorites' })).not
+      .toBeInTheDocument();
+  });
+
+  it.each(['USER', 'ADMIN'] as const)(
+    'lets an authenticated %s reach history',
+    async (role) => {
+      renderAuthenticatedApp('/history', { ...regularUser, role });
+
+      expect(
+        await screen.findByRole('heading', { name: 'Search history' }),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it('protects history from unauthenticated visitors', () => {
+    renderUnauthenticatedApp('/history');
+
+    expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Search history' })).not
       .toBeInTheDocument();
   });
 });

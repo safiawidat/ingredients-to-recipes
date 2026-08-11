@@ -86,9 +86,13 @@ const emptyResponse: RecommendationResponse = {
   },
 };
 
-const renderPage = () =>
+const renderPage = (routeState?: unknown) =>
   render(
-    <MemoryRouter>
+    <MemoryRouter
+      initialEntries={[
+        { pathname: '/recommendations', state: routeState },
+      ]}
+    >
       <RecommendationsPage />
     </MemoryRouter>,
   );
@@ -110,6 +114,47 @@ beforeEach(() => {
 });
 
 describe('RecommendationsPage', () => {
+  it('prefills valid history navigation state without submitting', () => {
+    renderPage({
+      ingredients: ['tomato', 'garbanzo bean'],
+      limit: 10,
+    });
+
+    expect(screen.getByRole('textbox', { name: 'Available ingredients' }))
+      .toHaveValue('tomato\ngarbanzo bean');
+    expect(screen.getByLabelText('Number of results')).toHaveValue('10');
+    expect(recommendRecipesMock).not.toHaveBeenCalled();
+  });
+
+  it('allows editing prefilled history values', async () => {
+    const user = userEvent.setup();
+    renderPage({ ingredients: ['tomato'], limit: 20 });
+
+    const textbox = screen.getByRole('textbox', {
+      name: 'Available ingredients',
+    });
+    await user.clear(textbox);
+    await user.type(textbox, 'onion');
+    await user.selectOptions(screen.getByLabelText('Number of results'), '5');
+
+    expect(textbox).toHaveValue('onion');
+    expect(screen.getByLabelText('Number of results')).toHaveValue('5');
+  });
+
+  it.each([
+    ['non-object state', 'invalid'],
+    ['non-string ingredients', { ingredients: ['tomato', 2], limit: 5 }],
+    ['unsupported limit', { ingredients: ['tomato'], limit: 3 }],
+    ['missing limit', { ingredients: ['tomato'] }],
+  ])('ignores malformed route state: %s', (_name, state) => {
+    renderPage(state);
+
+    expect(screen.getByRole('textbox', { name: 'Available ingredients' }))
+      .toHaveValue('');
+    expect(screen.getByLabelText('Number of results')).toHaveValue('5');
+    expect(recommendRecipesMock).not.toHaveBeenCalled();
+  });
+
   it('shows concise initial instructions and labelled controls', () => {
     renderPage();
 

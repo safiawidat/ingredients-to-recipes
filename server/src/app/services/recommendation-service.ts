@@ -3,6 +3,7 @@ import {
   findPublishedRecipesWithIngredients,
   type PublishedRecipeWithIngredients,
 } from '../repositories/recipe-repository.js';
+import { createRecommendationHistory } from '../repositories/recommendation-history-repository.js';
 import { normalizeIngredientInputs } from '../utils/ingredient-normalization.js';
 import { findIngredientsByNormalizedValues } from './ingredient-lookup-service.js';
 import {
@@ -69,6 +70,7 @@ const toRecommendationCandidate = (
 });
 
 export const recommendRecipes = async (
+  userId: string,
   input: RecommendationServiceInput,
 ): Promise<RecommendationServiceResult> => {
   const normalizedInputs = normalizeInputs(input.ingredients);
@@ -103,6 +105,19 @@ export const recommendRecipes = async (
     userIngredientIds: recognizedIngredientIds,
     candidates,
     limit: input.limit,
+  });
+
+  await createRecommendationHistory({
+    userId,
+    inputIngredients: normalizedInputs,
+    filters: { limit: input.limit },
+    results: {
+      recognizedIngredients: recognizedIngredients.map(
+        (ingredient) => ingredient.name,
+      ),
+      unknownIngredients,
+      recipeIds: recommendations.map(({ recipe }) => recipe.id),
+    },
   });
 
   return {

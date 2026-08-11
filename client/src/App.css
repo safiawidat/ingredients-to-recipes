@@ -993,6 +993,91 @@
   font-size: 0.82rem;
 }
 
+.history-page {
+  max-width: 820px;
+}
+
+.history-list {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-card {
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+
+.history-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.history-card-heading h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.history-card-heading button {
+  min-height: 44px;
+}
+
+.history-ingredient-group h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.history-ingredient-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-ingredient-list li {
+  max-width: 100%;
+  padding: 3px 8px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--code-bg);
+  font-size: 0.82rem;
+}
+
+.history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 0;
+}
+
+.history-meta div {
+  display: flex;
+  gap: 6px;
+}
+
+.history-meta dt {
+  font-weight: 700;
+}
+
+.history-meta dd {
+  margin: 0;
+}
+
 @media (max-width: 760px) {
   .app-header-inner {
     align-items: flex-start;
@@ -1108,7 +1193,8 @@
   }
 
   .recommendation-form-actions,
-  .recommendation-card-heading {
+  .recommendation-card-heading,
+  .history-card-heading {
     align-items: stretch;
     flex-direction: column;
   }
@@ -1124,5 +1210,9 @@
 
   .match-percentage {
     align-self: flex-start;
+  }
+
+  .history-card-heading button {
+    width: 100%;
   }
 }

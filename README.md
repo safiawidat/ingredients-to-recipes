@@ -86,11 +86,18 @@ The seed is intended only for local development and is blocked when
 dataset of 60 canonical ingredients, 30 aliases, and 30 recipes. Running it
 again restores the same controlled records without deleting unrelated data.
 
-## API Health Endpoints
+## API Endpoints
 
 GET /api/v1/health
 
 GET /api/v1/health/database
+
+POST /api/v1/recommendations
+
+- Requires authentication for USER and ADMIN accounts.
+- Accepts 1–50 ingredient strings.
+- Accepts an optional recommendation limit from 1–20 (default 5).
+- Returns recognized and unknown ingredients separately.
 
 ## Deployment
 

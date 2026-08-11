@@ -12,6 +12,7 @@ import { adminRecipeRouter } from './routes/admin-recipes.js';
 import { authRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
 import { ingredientAliasRouter } from './routes/ingredient-aliases.js';
+import { recommendationRouter } from './routes/recommendations.js';
 import { recipeRouter } from './routes/recipes.js';
 
 export const app = express();
@@ -38,6 +39,7 @@ app.use('/api/v1/health', healthRouter);
 app.use('/api/v1/admin/ingredient-aliases', ingredientAliasRouter);
 app.use('/api/v1/admin/ingredients', adminIngredientRouter);
 app.use('/api/v1/admin/recipes', adminRecipeRouter);
+app.use('/api/v1/recommendations', recommendationRouter);
 app.use('/api/v1/recipes', recipeRouter);
 
 if (env.NODE_ENV === 'test') {

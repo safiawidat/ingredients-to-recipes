@@ -86,6 +86,20 @@ The seed is intended only for local development and is blocked when
 dataset of 60 canonical ingredients, 30 aliases, and 30 recipes. Running it
 again restores the same controlled records without deleting unrelated data.
 
+## Controlled Recipe Import
+
+ADMIN users can open `/admin/recipes/import`, select a local JSON file, and
+send its parsed contents to `POST /api/v1/admin/recipes/import`. The backend
+validates the controlled payload and writes valid, nonduplicate recipes
+atomically to PostgreSQL. Each request accepts at most 500 recipes and is
+subject to the existing 1 MiB JSON body limit.
+
+Recipe names that already exist, or repeat later in the same payload after
+case and whitespace normalization, are skipped and reported in the summary.
+Any unknown ingredient or invalid record rejects the entire import before
+writes. The importer does not scrape, fetch URLs, store uploaded files, or load
+recipes from JSON during normal application runtime.
+
 ## API Endpoints
 
 GET /api/v1/health

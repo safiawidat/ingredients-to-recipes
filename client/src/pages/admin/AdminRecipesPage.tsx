@@ -121,9 +121,12 @@ export const AdminRecipesPage = () => {
           <h1>Admin Recipes</h1>
           <p>Manage published and inactive recipes.</p>
         </div>
-        <Link className="primary-link" to="/admin/recipes/new">
-          Create Recipe
-        </Link>
+        <div className="admin-recipe-page-actions">
+          <Link to="/admin/recipes/import">Import Recipes</Link>
+          <Link className="primary-link" to="/admin/recipes/new">
+            Create Recipe
+          </Link>
+        </div>
       </div>
 
       {isLoading && <p role="status">Loading admin recipes...</p>}

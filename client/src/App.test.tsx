@@ -175,6 +175,35 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
+  it('lets an admin reach the protected recipe import page', () => {
+    renderAuthenticatedApp('/admin/recipes/import', {
+      ...regularUser,
+      role: 'ADMIN',
+    });
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Import Recipes' }),
+    ).toBeInTheDocument();
+  });
+
+  it('blocks a regular user from the recipe import page', () => {
+    renderAuthenticatedApp('/admin/recipes/import');
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Access denied' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Import Recipes' })).not
+      .toBeInTheDocument();
+  });
+
+  it('protects the recipe import page from unauthenticated visitors', () => {
+    renderUnauthenticatedApp('/admin/recipes/import');
+
+    expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Import Recipes' })).not
+      .toBeInTheDocument();
+  });
+
   it('lets an authenticated user reach recommendations', () => {
     renderAuthenticatedApp('/recommendations');
 

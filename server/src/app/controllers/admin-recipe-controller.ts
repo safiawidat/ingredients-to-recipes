@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
 
+import { importRecipes as importRecipesInService } from '../services/recipe-import-service.js';
 import {
   createRecipe as createRecipeInService,
   listAllRecipes,
@@ -39,6 +40,12 @@ export const createRecipe: RequestHandler = async (request, response) => {
   response.status(201).json({
     data: { recipe },
   });
+};
+
+export const importRecipes: RequestHandler = async (request, response) => {
+  const summary = await importRecipesInService(request.body);
+
+  response.status(200).json({ data: summary });
 };
 
 export const updateRecipe: RequestHandler = async (request, response) => {

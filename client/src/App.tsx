@@ -17,6 +17,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminRecipeCreatePage } from './pages/admin/AdminRecipeCreatePage';
 import { AdminRecipeEditPage } from './pages/admin/AdminRecipeEditPage';
+import { AdminRecipeImportPage } from './pages/admin/AdminRecipeImportPage';
 import { AdminRecipesPage } from './pages/admin/AdminRecipesPage';
 import { IngredientAliasesPage } from './pages/admin/IngredientAliasesPage';
 
@@ -45,6 +46,10 @@ function App() {
             <Route
               path="/admin/recipes/:id/edit"
               element={<AdminRecipeEditPage />}
+            />
+            <Route
+              path="/admin/recipes/import"
+              element={<AdminRecipeImportPage />}
             />
             <Route
               path="/admin/ingredient-aliases"

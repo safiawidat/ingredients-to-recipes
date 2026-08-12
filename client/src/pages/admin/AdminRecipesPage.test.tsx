@@ -101,6 +101,10 @@ describe('AdminRecipesPage', () => {
       'href',
       '/admin/recipes/new',
     );
+    expect(screen.getByRole('link', { name: 'Import Recipes' })).toHaveAttribute(
+      'href',
+      '/admin/recipes/import',
+    );
     expect(within(publishedCard).getByRole('link', { name: 'Edit' }))
       .toHaveAttribute('href', '/admin/recipes/recipe-1/edit');
   });

@@ -60,4 +60,34 @@ describe('apiRequest', () => {
       new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password'),
     );
   });
+
+  it('preserves explicitly safe optional error details', async () => {
+    const details = {
+      recordErrors: [{ recordIndex: 0, message: 'Safe detail' }],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Recipe import validation failed',
+              details,
+            },
+          }),
+          { status: 400 },
+        ),
+      ),
+    );
+
+    await expect(apiRequest('/admin/recipes/import')).rejects.toEqual(
+      new ApiError(
+        400,
+        'VALIDATION_ERROR',
+        'Recipe import validation failed',
+        details,
+      ),
+    );
+  });
 });

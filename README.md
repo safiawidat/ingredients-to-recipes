@@ -100,6 +100,37 @@ Any unknown ingredient or invalid record rejects the entire import before
 writes. The importer does not scrape, fetch URLs, store uploaded files, or load
 recipes from JSON during normal application runtime.
 
+## Controlled Recipe Dataset
+
+The project keeps the original 30 deterministic seed recipes as its baseline
+and provides 470 additional original recipes as controlled import artifacts.
+Together they produce 500 controlled recipes in a clean seeded database after
+the two generated batches are imported separately by an ADMIN.
+
+The extension is generated deterministically from predefined recipe-family
+templates. It uses only the existing canonical ingredients and aliases, does
+not scrape websites or use external recipe datasets, and produces two
+importer-ready files with 235 recipes each:
+
+- `sample-data/controlled-recipes-batch-01.json`
+- `sample-data/controlled-recipes-batch-02.json`
+
+Regenerate the files:
+
+```powershell
+npm.cmd run dataset:generate --prefix server
+```
+
+Validate the generated data and committed artifacts:
+
+```powershell
+npm.cmd run dataset:test --prefix server
+```
+
+Generation and validation do not write to PostgreSQL. Database import remains
+a separate manual action through the ADMIN recipe importer; these files are
+not claimed to have been imported.
+
 ## API Endpoints
 
 GET /api/v1/health

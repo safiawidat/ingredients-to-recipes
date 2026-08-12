@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run",
+    "dataset:generate": "tsx prisma/generate-controlled-recipe-dataset.ts",
+    "dataset:test": "vitest run prisma/controlled-recipe-dataset.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed"

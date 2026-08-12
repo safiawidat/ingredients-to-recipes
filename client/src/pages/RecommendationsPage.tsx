@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { ApiError } from '../lib/api';
 import { getSafeHttpUrl } from '../lib/safe-url';
@@ -99,6 +99,7 @@ const IngredientGroup = ({
 
 export const RecommendationsPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [prefill] = useState(() => getRecommendationPrefill(location.state));
   const [inputText, setInputText] = useState(() =>
     prefill?.ingredients.join('\n') ?? '',
@@ -328,6 +329,28 @@ export const RecommendationsPage = () => {
                             recipeName={recipe.name}
                           />
                         </div>
+
+                        {recommendation.missingIngredients.length > 0 && (
+                          <button
+                            className="secondary-button recommendation-shopping-action"
+                            type="button"
+                            onClick={() =>
+                              navigate('/shopping-list', {
+                                state: {
+                                  items: recommendation.missingIngredients.map(
+                                    ({ id, name }) => ({ id, name }),
+                                  ),
+                                  recipe: {
+                                    id: recipe.id,
+                                    name: recipe.name,
+                                  },
+                                },
+                              })
+                            }
+                          >
+                            Add missing ingredients to shopping list
+                          </button>
+                        )}
 
                         {recipe.dietTags.length > 0 && (
                           <div className="tag-group">

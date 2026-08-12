@@ -12,6 +12,7 @@ import { RecipeDetailPage } from './pages/RecipeDetailPage';
 import { RecipesPage } from './pages/RecipesPage';
 import { RecommendationsPage } from './pages/RecommendationsPage';
 import { RecommendationHistoryPage } from './pages/RecommendationHistoryPage';
+import { ShoppingListPage } from './pages/ShoppingListPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminRecipeCreatePage } from './pages/admin/AdminRecipeCreatePage';
@@ -32,6 +33,7 @@ function App() {
           <Route path="/recommendations" element={<RecommendationsPage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/history" element={<RecommendationHistoryPage />} />
+          <Route path="/shopping-list" element={<ShoppingListPage />} />
 
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminDashboardPage />} />

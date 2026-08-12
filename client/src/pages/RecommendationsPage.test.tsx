@@ -6,7 +6,12 @@ import {
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../lib/api';
@@ -94,6 +99,30 @@ const renderPage = (routeState?: unknown) =>
       ]}
     >
       <RecommendationsPage />
+    </MemoryRouter>,
+  );
+
+const ShoppingListDestination = () => {
+  const location = useLocation();
+
+  return (
+    <div>
+      <h1>Shopping list destination</h1>
+      <pre>{JSON.stringify(location.state)}</pre>
+    </div>
+  );
+};
+
+const renderPageWithShoppingDestination = () =>
+  render(
+    <MemoryRouter initialEntries={['/recommendations']}>
+      <Routes>
+        <Route path="/recommendations" element={<RecommendationsPage />} />
+        <Route
+          path="/shopping-list"
+          element={<ShoppingListDestination />}
+        />
+      </Routes>
     </MemoryRouter>,
   );
 
@@ -356,6 +385,55 @@ describe('RecommendationsPage', () => {
     expect(within(secondCard!).getByRole('heading', { name: 'Missing ingredients' }))
       .toBeInTheDocument();
     expect(within(secondCard!).getByText('None')).toBeInTheDocument();
+  });
+
+  it('shows a shopping-list action only when missing ingredients exist', async () => {
+    recommendRecipesMock.mockResolvedValue(successfulResponse);
+    renderPage();
+    setInput('tomato');
+
+    await submit();
+
+    const firstCard = screen.getByRole('heading', { name: 'First Recipe' })
+      .closest('article');
+    const secondCard = screen.getByRole('heading', { name: 'Second Recipe' })
+      .closest('article');
+    expect(firstCard).not.toBeNull();
+    expect(secondCard).not.toBeNull();
+    expect(
+      within(firstCard!).getByRole('button', {
+        name: 'Add missing ingredients to shopping list',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(secondCard!).queryByRole('button', {
+        name: 'Add missing ingredients to shopping list',
+      }),
+    ).not.toBeInTheDocument();
+    expect(within(secondCard!).getByText('None')).toBeInTheDocument();
+  });
+
+  it('navigates with exact missing items and source recipe without another API call', async () => {
+    recommendRecipesMock.mockResolvedValue(successfulResponse);
+    const user = userEvent.setup();
+    renderPageWithShoppingDestination();
+    setInput('tomato');
+    await submit();
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Add missing ingredients to shopping list',
+      }),
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Shopping list destination' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/"items":\[\{"id":"ingredient-basil","name":"basil"\}\]/))
+      .toBeInTheDocument();
+    expect(screen.getByText(/"recipe":\{"id":"recipe\/first\?","name":"First Recipe"\}/))
+      .toBeInTheDocument();
+    expect(recommendRecipesMock).toHaveBeenCalledTimes(1);
   });
 
   it('renders encoded detail links and optional recipe metadata', async () => {

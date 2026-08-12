@@ -244,4 +244,26 @@ describe('App', () => {
     expect(screen.queryByRole('heading', { name: 'Search history' })).not
       .toBeInTheDocument();
   });
+
+  it.each(['USER', 'ADMIN'] as const)(
+    'lets an authenticated %s reach the shopping list directly',
+    (role) => {
+      renderAuthenticatedApp('/shopping-list', { ...regularUser, role });
+
+      expect(
+        screen.getByRole('heading', { name: 'Shopping list' }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Create a shopping list from a recommendation with missing ingredients.',
+      );
+    },
+  );
+
+  it('protects the shopping list from unauthenticated visitors', () => {
+    renderUnauthenticatedApp('/shopping-list');
+
+    expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Shopping list' })).not
+      .toBeInTheDocument();
+  });
 });

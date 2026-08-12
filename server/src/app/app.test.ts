@@ -93,6 +93,38 @@ describe('unexpected errors', () => {
   });
 });
 
+describe('JSON request errors', () => {
+  it('maps malformed JSON to a safe 400 response', async () => {
+    const response = await request(app)
+      .post('/api/v1/unknown')
+      .set('Content-Type', 'application/json')
+      .send('{"recipes":');
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_JSON',
+        message: 'Request body must contain valid JSON',
+      },
+    });
+  });
+
+  it('maps JSON over the existing 1 MiB limit to a safe 413 response', async () => {
+    const response = await request(app)
+      .post('/api/v1/unknown')
+      .set('Content-Type', 'application/json')
+      .send(JSON.stringify({ value: 'x'.repeat(1024 * 1024) }));
+
+    expect(response.status).toBe(413);
+    expect(response.body).toEqual({
+      error: {
+        code: 'PAYLOAD_TOO_LARGE',
+        message: 'Request body exceeds the 1 MiB limit',
+      },
+    });
+  });
+});
+
 describe('application security', () => {
   it('adds security headers', async () => {
     const response = await request(app).get('/api/v1/health');

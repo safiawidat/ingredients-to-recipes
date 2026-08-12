@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeIngredientInputs } from './ingredient-normalization.js';
+import {
+  normalizeIngredientInput,
+  normalizeIngredientInputs,
+} from './ingredient-normalization.js';
+
+describe('normalizeIngredientInput', () => {
+  it('normalizes one value without removing its position from a collection', () => {
+    expect(normalizeIngredientInput('  Green\t\tONION  ')).toBe('green onion');
+    expect(normalizeIngredientInput('   ')).toBe('');
+  });
+});
 
 describe('normalizeIngredientInputs', () => {
   it('lowercases ingredients', () => {

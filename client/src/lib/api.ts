@@ -4,6 +4,7 @@ type ApiErrorBody = {
   error?: {
     code?: string;
     message?: string;
+    details?: unknown;
   };
 };
 
@@ -14,12 +15,14 @@ export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  readonly details: unknown;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, details?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -48,6 +51,7 @@ export const apiRequest = async <T>(
       response.status,
       body.error?.code ?? 'REQUEST_FAILED',
       body.error?.message ?? 'The request could not be completed',
+      body.error?.details,
     );
   }
 

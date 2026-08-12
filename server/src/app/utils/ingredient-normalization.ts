@@ -1,6 +1,6 @@
 const INTERNAL_WHITESPACE_PATTERN = /\s+/g;
 
-const normalizeIngredientText = (ingredient: string): string =>
+export const normalizeIngredientInput = (ingredient: string): string =>
   ingredient.trim().toLowerCase().replace(INTERNAL_WHITESPACE_PATTERN, ' ');
 
 export const normalizeIngredientInputs = (
@@ -10,7 +10,7 @@ export const normalizeIngredientInputs = (
   const seenIngredients = new Set<string>();
 
   for (const ingredient of ingredients) {
-    const normalizedIngredient = normalizeIngredientText(ingredient);
+    const normalizedIngredient = normalizeIngredientInput(ingredient);
 
     if (
       normalizedIngredient.length === 0 ||

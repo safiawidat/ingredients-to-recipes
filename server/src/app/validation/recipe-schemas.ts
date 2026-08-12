@@ -39,7 +39,7 @@ const tagArraySchema = z
   .default([])
   .transform((values) => Array.from(new Set(values)));
 
-const nameSchema = z
+export const recipeNameSchema = z
   .string()
   .trim()
   .min(2, 'Name must be at least 2 characters')
@@ -51,7 +51,7 @@ const descriptionSchema = z
   .max(2000, 'Description must be 2000 characters or fewer')
   .nullable();
 
-const instructionsSchema = z
+export const recipeInstructionsSchema = z
   .string()
   .trim()
   .min(1, 'Instructions are required')
@@ -63,14 +63,14 @@ const cuisineSchema = z
   .max(100, 'Cuisine must be 100 characters or fewer')
   .nullable();
 
-const preparationTimeSchema = z
+export const recipePreparationTimeSchema = z
   .number()
   .int()
   .positive('Preparation time must be a positive integer')
   .max(1440, 'Preparation time must be 1440 minutes or fewer')
   .nullable();
 
-const servingsSchema = z
+export const recipeServingsSchema = z
   .number()
   .int()
   .positive('Servings must be a positive integer')
@@ -114,12 +114,12 @@ export const listRecipesQuerySchema = z.object({
 });
 
 export const createRecipeSchema = z.object({
-  name: nameSchema,
+  name: recipeNameSchema,
   description: descriptionSchema.optional(),
-  instructions: instructionsSchema,
+  instructions: recipeInstructionsSchema,
   cuisine: cuisineSchema.optional(),
-  preparationTime: preparationTimeSchema.optional(),
-  servings: servingsSchema.optional(),
+  preparationTime: recipePreparationTimeSchema.optional(),
+  servings: recipeServingsSchema.optional(),
   imageUrl: imageUrlSchema.optional(),
   sourceUrl: sourceUrlSchema.optional(),
   dietTags: tagArraySchema,
@@ -130,12 +130,12 @@ export const createRecipeSchema = z.object({
 
 export const updateRecipeSchema = z
   .object({
-    name: nameSchema.optional(),
+    name: recipeNameSchema.optional(),
     description: descriptionSchema.optional(),
-    instructions: instructionsSchema.optional(),
+    instructions: recipeInstructionsSchema.optional(),
     cuisine: cuisineSchema.optional(),
-    preparationTime: preparationTimeSchema.optional(),
-    servings: servingsSchema.optional(),
+    preparationTime: recipePreparationTimeSchema.optional(),
+    servings: recipeServingsSchema.optional(),
     imageUrl: imageUrlSchema.optional(),
     sourceUrl: sourceUrlSchema.optional(),
     dietTags: tagArraySchema.optional(),

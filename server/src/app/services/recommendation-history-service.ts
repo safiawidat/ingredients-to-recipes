@@ -5,12 +5,18 @@ import {
   findRecommendationHistoryForUser,
   type RecommendationHistoryRecord,
 } from '../repositories/recommendation-history-repository.js';
+import {
+  recommendationFiltersSchema,
+  type RecommendationFilters,
+} from '../validation/recommendation-schemas.js';
+
+const storedHistoryFiltersSchema = recommendationFiltersSchema.extend({
+  limit: z.number().int().min(1).max(20),
+});
 
 const storedHistorySchema = z.object({
   inputIngredients: z.array(z.string()),
-  filters: z.object({
-    limit: z.number().int().min(1).max(20),
-  }),
+  filters: storedHistoryFiltersSchema,
   results: z.object({
     recognizedIngredients: z.array(z.string()),
     unknownIngredients: z.array(z.string()),
@@ -25,8 +31,16 @@ export interface RecommendationHistoryEntry {
   unknownIngredients: string[];
   resultCount: number;
   limit: number;
+  filters?: RecommendationFilters;
   createdAt: string;
 }
+
+const hasActiveFilters = (filters: RecommendationFilters): boolean =>
+  filters.cuisine !== undefined ||
+  filters.maxPreparationTime !== undefined ||
+  filters.dietaryType !== undefined ||
+  (filters.excludeAllergens !== undefined &&
+    filters.excludeAllergens.length > 0);
 
 const invalidStoredHistoryError = (): ApplicationError =>
   new ApplicationError(
@@ -48,6 +62,8 @@ const mapHistoryRecord = (
     throw invalidStoredHistoryError();
   }
 
+  const { limit, ...filters } = storedHistory.data.filters;
+
   return {
     id: record.id,
     ingredients: storedHistory.data.inputIngredients,
@@ -55,7 +71,8 @@ const mapHistoryRecord = (
       storedHistory.data.results.recognizedIngredients,
     unknownIngredients: storedHistory.data.results.unknownIngredients,
     resultCount: storedHistory.data.results.recipeIds.length,
-    limit: storedHistory.data.filters.limit,
+    limit,
+    ...(hasActiveFilters(filters) ? { filters } : {}),
     createdAt: record.createdAt.toISOString(),
   };
 };

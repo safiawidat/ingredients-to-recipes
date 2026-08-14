@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { recommendationRequestSchema } from './recommendation-schemas.js';
+import {
+  recommendationAllergens,
+  recommendationCuisines,
+  recommendationDietaryTypes,
+  recommendationRequestSchema,
+} from './recommendation-schemas.js';
 
 describe('recommendationRequestSchema', () => {
   it('accepts valid ingredients and applies the default limit', () => {
@@ -121,5 +126,148 @@ describe('recommendationRequestSchema', () => {
         limit: '5',
       }).success,
     ).toBe(false);
+  });
+
+  it('accepts an empty filters object', () => {
+    const result = recommendationRequestSchema.safeParse({
+      ingredients: ['tomato'],
+      filters: {},
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.filters).toEqual({});
+  });
+
+  it.each(recommendationCuisines)('accepts cuisine %s', (cuisine) => {
+    const result = recommendationRequestSchema.safeParse({
+      ingredients: ['tomato'],
+      filters: { cuisine },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.filters?.cuisine).toBe(cuisine);
+  });
+
+  it.each(['Mediterranean', 'mediterranean-inspired'])(
+    'rejects invalid or case-mismatched cuisine %s',
+    (cuisine) => {
+      expect(
+        recommendationRequestSchema.safeParse({
+          ingredients: ['tomato'],
+          filters: { cuisine },
+        }).success,
+      ).toBe(false);
+    },
+  );
+
+  it.each([1, 30, 1440])('accepts max preparation time %s', (value) => {
+    expect(
+      recommendationRequestSchema.safeParse({
+        ingredients: ['tomato'],
+        filters: { maxPreparationTime: value },
+      }).success,
+    ).toBe(true);
+  });
+
+  it.each([0, 1441, 1.5, '30'])(
+    'rejects invalid max preparation time %s',
+    (value) => {
+      expect(
+        recommendationRequestSchema.safeParse({
+          ingredients: ['tomato'],
+          filters: { maxPreparationTime: value },
+        }).success,
+      ).toBe(false);
+    },
+  );
+
+  it.each(recommendationDietaryTypes)(
+    'accepts dietary type %s',
+    (dietaryType) => {
+      expect(
+        recommendationRequestSchema.safeParse({
+          ingredients: ['tomato'],
+          filters: { dietaryType },
+        }).success,
+      ).toBe(true);
+    },
+  );
+
+  it.each(['high-protein', 'Vegan'])(
+    'rejects invalid dietary type %s',
+    (dietaryType) => {
+      expect(
+        recommendationRequestSchema.safeParse({
+          ingredients: ['tomato'],
+          filters: { dietaryType },
+        }).success,
+      ).toBe(false);
+    },
+  );
+
+  it.each(recommendationAllergens)('accepts allergen %s', (allergen) => {
+    expect(
+      recommendationRequestSchema.safeParse({
+        ingredients: ['tomato'],
+        filters: { excludeAllergens: [allergen] },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('accepts an empty allergen list and deduplicates repeated allergens', () => {
+    const empty = recommendationRequestSchema.safeParse({
+      ingredients: ['tomato'],
+      filters: { excludeAllergens: [] },
+    });
+    const duplicates = recommendationRequestSchema.safeParse({
+      ingredients: ['tomato'],
+      filters: { excludeAllergens: ['peanut', 'soy', 'peanut'] },
+    });
+
+    expect(empty.success).toBe(true);
+    expect(empty.data?.filters?.excludeAllergens).toEqual([]);
+    expect(duplicates.success).toBe(true);
+    expect(duplicates.data?.filters?.excludeAllergens).toEqual([
+      'peanut',
+      'soy',
+    ]);
+  });
+
+  it('rejects more than eight raw allergen entries', () => {
+    expect(
+      recommendationRequestSchema.safeParse({
+        ingredients: ['tomato'],
+        filters: { excludeAllergens: Array(9).fill('peanut') },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects invalid allergens and unknown nested filter keys', () => {
+    expect(
+      recommendationRequestSchema.safeParse({
+        ingredients: ['tomato'],
+        filters: { excludeAllergens: ['nuts'] },
+      }).success,
+    ).toBe(false);
+    expect(
+      recommendationRequestSchema.safeParse({
+        ingredients: ['tomato'],
+        filters: { calories: 500 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts all filter categories in one request', () => {
+    const result = recommendationRequestSchema.safeParse({
+      ingredients: ['tomato'],
+      filters: {
+        cuisine: 'Mediterranean-inspired',
+        maxPreparationTime: 30,
+        dietaryType: 'vegan',
+        excludeAllergens: ['peanut', 'soy'],
+      },
+    });
+
+    expect(result.success).toBe(true);
   });
 });

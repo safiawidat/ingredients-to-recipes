@@ -5,20 +5,127 @@ import { ApiError } from '../lib/api';
 import { getSafeHttpUrl } from '../lib/safe-url';
 import { recommendRecipes } from '../services/recommendation-api';
 import type {
+  RecommendationAllergen,
+  RecommendationCuisine,
+  RecommendationDietaryType,
+  RecommendationFilters,
   RecommendationIngredient,
   RecommendationResponse,
+} from '../types/recommendation';
+import {
+  recommendationAllergenOptions,
+  recommendationCuisineOptions,
+  recommendationDietaryOptions,
 } from '../types/recommendation';
 
 const MAX_INGREDIENTS = 50;
 const MAX_INGREDIENT_LENGTH = 100;
 const DEFAULT_LIMIT = 5;
 const LIMIT_OPTIONS = [5, 10, 20] as const;
+const PREPARATION_TIME_OPTIONS = [15, 30, 45, 60, 75] as const;
 const NO_RECOGNIZED_INGREDIENTS = 'NO_RECOGNIZED_INGREDIENTS';
+
+const filterLabels: Record<
+  RecommendationDietaryType | RecommendationAllergen,
+  string
+> = {
+  vegan: 'Vegan',
+  vegetarian: 'Vegetarian',
+  'dairy-free': 'Dairy-free',
+  'gluten-free': 'Gluten-free',
+  dairy: 'Dairy',
+  egg: 'Egg',
+  fish: 'Fish',
+  gluten: 'Gluten',
+  peanut: 'Peanut',
+  sesame: 'Sesame',
+  soy: 'Soy',
+  'tree-nut': 'Tree nut',
+};
 
 interface RecommendationPrefill {
   ingredients: string[];
   limit: (typeof LIMIT_OPTIONS)[number];
+  filters?: RecommendationFilters;
 }
+
+const isOption = <Option extends string>(
+  value: unknown,
+  options: readonly Option[],
+): value is Option =>
+  typeof value === 'string' && options.some((option) => option === value);
+
+const getFiltersPrefill = (value: unknown): RecommendationFilters | null => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return null;
+  }
+
+  const filters = value as Record<string, unknown>;
+  const allowedKeys = new Set([
+    'cuisine',
+    'maxPreparationTime',
+    'dietaryType',
+    'excludeAllergens',
+  ]);
+
+  if (Object.keys(filters).some((key) => !allowedKeys.has(key))) {
+    return null;
+  }
+
+  if (
+    filters.cuisine !== undefined &&
+    !isOption(filters.cuisine, recommendationCuisineOptions)
+  ) {
+    return null;
+  }
+  if (
+    filters.maxPreparationTime !== undefined &&
+    (!Number.isInteger(filters.maxPreparationTime) ||
+      (filters.maxPreparationTime as number) < 1 ||
+      (filters.maxPreparationTime as number) > 1440)
+  ) {
+    return null;
+  }
+  if (
+    filters.dietaryType !== undefined &&
+    !isOption(filters.dietaryType, recommendationDietaryOptions)
+  ) {
+    return null;
+  }
+  if (
+    filters.excludeAllergens !== undefined &&
+    (!Array.isArray(filters.excludeAllergens) ||
+      filters.excludeAllergens.length > recommendationAllergenOptions.length ||
+      !filters.excludeAllergens.every((allergen) =>
+        isOption(allergen, recommendationAllergenOptions),
+      ))
+  ) {
+    return null;
+  }
+
+  const excluded = new Set(
+    (filters.excludeAllergens ?? []) as RecommendationAllergen[],
+  );
+
+  return {
+    ...(filters.cuisine !== undefined
+      ? { cuisine: filters.cuisine as RecommendationCuisine }
+      : {}),
+    ...(filters.maxPreparationTime !== undefined
+      ? { maxPreparationTime: filters.maxPreparationTime as number }
+      : {}),
+    ...(filters.dietaryType !== undefined
+      ? { dietaryType: filters.dietaryType as RecommendationDietaryType }
+      : {}),
+    ...(filters.excludeAllergens !== undefined
+      ? {
+          excludeAllergens: recommendationAllergenOptions.filter((allergen) =>
+            excluded.has(allergen),
+          ),
+        }
+      : {}),
+  };
+};
 
 const getRecommendationPrefill = (
   state: unknown,
@@ -27,7 +134,7 @@ const getRecommendationPrefill = (
     return null;
   }
 
-  const { ingredients, limit } = state as Record<string, unknown>;
+  const { ingredients, limit, filters } = state as Record<string, unknown>;
 
   if (
     !Array.isArray(ingredients) ||
@@ -37,9 +144,18 @@ const getRecommendationPrefill = (
     return null;
   }
 
+  const parsedFilters =
+    filters === undefined ? undefined : getFiltersPrefill(filters);
+  if (filters !== undefined && parsedFilters === null) {
+    return null;
+  }
+
   return {
     ingredients,
     limit: limit as RecommendationPrefill['limit'],
+    ...(parsedFilters !== undefined && parsedFilters !== null
+      ? { filters: parsedFilters }
+      : {}),
   };
 };
 
@@ -107,6 +223,18 @@ export const RecommendationsPage = () => {
   const [limit, setLimit] = useState<number>(
     prefill?.limit ?? DEFAULT_LIMIT,
   );
+  const [cuisine, setCuisine] = useState<RecommendationCuisine | ''>(
+    prefill?.filters?.cuisine ?? '',
+  );
+  const [maxPreparationTime, setMaxPreparationTime] = useState<number | ''>(
+    prefill?.filters?.maxPreparationTime ?? '',
+  );
+  const [dietaryType, setDietaryType] = useState<
+    RecommendationDietaryType | ''
+  >(prefill?.filters?.dietaryType ?? '');
+  const [excludedAllergens, setExcludedAllergens] = useState<
+    RecommendationAllergen[]
+  >(prefill?.filters?.excludeAllergens ?? []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<
@@ -132,7 +260,19 @@ export const RecommendationsPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await recommendRecipes({ ingredients, limit });
+      const filters: RecommendationFilters = {
+        ...(cuisine ? { cuisine } : {}),
+        ...(maxPreparationTime ? { maxPreparationTime } : {}),
+        ...(dietaryType ? { dietaryType } : {}),
+        ...(excludedAllergens.length > 0
+          ? { excludeAllergens: excludedAllergens }
+          : {}),
+      };
+      const response = await recommendRecipes({
+        ingredients,
+        limit,
+        ...(Object.keys(filters).length > 0 ? { filters } : {}),
+      });
       setResult(response.data);
     } catch (requestError) {
       setError(
@@ -144,6 +284,31 @@ export const RecommendationsPage = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleAllergenChange = (
+    allergen: RecommendationAllergen,
+    checked: boolean,
+  ) => {
+    setExcludedAllergens((current) => {
+      const selected = new Set(current);
+      if (checked) {
+        selected.add(allergen);
+      } else {
+        selected.delete(allergen);
+      }
+
+      return recommendationAllergenOptions.filter((option) =>
+        selected.has(option),
+      );
+    });
+  };
+
+  const handleClearFilters = () => {
+    setCuisine('');
+    setMaxPreparationTime('');
+    setDietaryType('');
+    setExcludedAllergens([]);
   };
 
   return (
@@ -173,6 +338,123 @@ export const RecommendationsPage = () => {
             value={inputText}
           />
         </div>
+
+        <section
+          className="recommendation-filter-section"
+          aria-labelledby="recommendation-filters-heading"
+        >
+          <div className="recommendation-filter-heading">
+            <div>
+              <h2 id="recommendation-filters-heading">Optional filters</h2>
+              <p>Limit eligible recipes without changing match ranking.</p>
+            </div>
+            <button
+              className="secondary-button"
+              disabled={isLoading}
+              type="button"
+              onClick={handleClearFilters}
+            >
+              Clear filters
+            </button>
+          </div>
+
+          <div className="recommendation-filter-grid">
+            <div className="form-field">
+              <label htmlFor="recommendation-cuisine">Cuisine</label>
+              <select
+                id="recommendation-cuisine"
+                disabled={isLoading}
+                value={cuisine}
+                onChange={(event) =>
+                  setCuisine(event.target.value as RecommendationCuisine | '')
+                }
+              >
+                <option value="">Any cuisine</option>
+                {recommendationCuisineOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="recommendation-max-time">
+                Maximum preparation time
+              </label>
+              <select
+                id="recommendation-max-time"
+                disabled={isLoading}
+                value={maxPreparationTime}
+                onChange={(event) =>
+                  setMaxPreparationTime(
+                    event.target.value === ''
+                      ? ''
+                      : Number(event.target.value),
+                  )
+                }
+              >
+                <option value="">Any time</option>
+                {maxPreparationTime !== '' &&
+                  !PREPARATION_TIME_OPTIONS.some(
+                    (option) => option === maxPreparationTime,
+                  ) && (
+                    <option value={maxPreparationTime}>
+                      {maxPreparationTime} minutes
+                    </option>
+                  )}
+                {PREPARATION_TIME_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option} minutes
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="recommendation-diet">Dietary type</label>
+              <select
+                id="recommendation-diet"
+                disabled={isLoading}
+                value={dietaryType}
+                onChange={(event) =>
+                  setDietaryType(
+                    event.target.value as RecommendationDietaryType | '',
+                  )
+                }
+              >
+                <option value="">Any diet</option>
+                {recommendationDietaryOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {filterLabels[option]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <fieldset className="recommendation-allergen-fieldset">
+            <legend>Allergens to exclude</legend>
+            <p className="form-help">
+              Exclude recipes containing any selected allergen.
+            </p>
+            <div className="recommendation-allergen-options">
+              {recommendationAllergenOptions.map((allergen) => (
+                <label key={allergen}>
+                  <input
+                    type="checkbox"
+                    checked={excludedAllergens.includes(allergen)}
+                    disabled={isLoading}
+                    onChange={(event) =>
+                      handleAllergenChange(allergen, event.target.checked)
+                    }
+                  />
+                  <span>{filterLabels[allergen]}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </section>
 
         <div className="recommendation-form-actions">
           <div className="form-field recommendation-limit-field">

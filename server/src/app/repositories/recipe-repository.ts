@@ -1,6 +1,7 @@
 import type { IngredientCategory } from '../../generated/prisma/enums.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../database/prisma.js';
+import type { RecommendationFilters } from '../validation/recommendation-schemas.js';
 
 export interface RecipeSummary {
   id: string;
@@ -218,11 +219,37 @@ export const findAllRecipes = (
   params: RecipeListParams,
 ): Promise<RecipeListResult> => findRecipes(params, {});
 
-export const findPublishedRecipesWithIngredients = (): Promise<
+export const findPublishedRecipesWithIngredients = (
+  filters: RecommendationFilters = {},
+): Promise<
   PublishedRecipeWithIngredients[]
 > =>
   prisma.recipe.findMany({
-    where: { isPublished: true },
+    where: {
+      isPublished: true,
+      ...(filters.cuisine !== undefined
+        ? { cuisine: filters.cuisine }
+        : {}),
+      ...(filters.maxPreparationTime !== undefined
+        ? {
+            preparationTime: {
+              not: null,
+              lte: filters.maxPreparationTime,
+            },
+          }
+        : {}),
+      ...(filters.dietaryType !== undefined
+        ? { dietTags: { has: filters.dietaryType } }
+        : {}),
+      ...(filters.excludeAllergens !== undefined &&
+      filters.excludeAllergens.length > 0
+        ? {
+            NOT: {
+              allergens: { hasSome: filters.excludeAllergens },
+            },
+          }
+        : {}),
+    } satisfies Prisma.RecipeWhereInput,
     orderBy: [{ name: 'asc' }, { id: 'asc' }],
     select: publishedRecipeWithIngredientsSelect,
   });

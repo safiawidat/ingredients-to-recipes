@@ -30,6 +30,12 @@ const historyResponse: RecommendationHistoryResponse = {
         unknownIngredients: ['mystery item'],
         resultCount: 2,
         limit: 10,
+        filters: {
+          cuisine: 'Mediterranean-inspired',
+          maxPreparationTime: 30,
+          dietaryType: 'vegan',
+          excludeAllergens: ['peanut', 'soy'],
+        },
         createdAt: '2026-08-11T08:00:00.000Z',
       },
       {
@@ -113,6 +119,30 @@ describe('RecommendationHistoryPage', () => {
     expect(message).toHaveAttribute('role', 'status');
   });
 
+  it('shows a compact filter summary only for filtered entries', async () => {
+    getRecommendationHistoryMock.mockResolvedValue(historyResponse);
+    renderPage();
+
+    const articles = within(
+      await screen.findByRole('list', {
+        name: 'Recommendation search history',
+      }),
+    ).getAllByRole('article');
+    const summary = within(articles[0]!).getByRole('region', {
+      name: 'Applied recommendation filters',
+    });
+
+    expect(summary).toHaveTextContent('CuisineMediterranean-inspired');
+    expect(summary).toHaveTextContent('Max time30 min');
+    expect(summary).toHaveTextContent('DietVegan');
+    expect(summary).toHaveTextContent('Excluded allergensPeanut, Soy');
+    expect(
+      within(articles[1]!).queryByRole('region', {
+        name: 'Applied recommendation filters',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it('shows a safe error and retries the list request', async () => {
     getRecommendationHistoryMock
       .mockRejectedValueOnce(new Error('private detail'))
@@ -136,7 +166,7 @@ describe('RecommendationHistoryPage', () => {
     expect(getRecommendationHistoryMock).toHaveBeenCalledTimes(2);
   });
 
-  it('navigates Use Again with ingredients and limit state', async () => {
+  it('navigates Use Again with ingredients, limit, and filters state', async () => {
     const Destination = () => {
       const location = useLocation();
       return <pre>{JSON.stringify(location.state)}</pre>;
@@ -162,6 +192,34 @@ describe('RecommendationHistoryPage', () => {
         .toBeInTheDocument();
     });
     expect(screen.getByText(/"limit":10/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /"filters":\{"cuisine":"Mediterranean-inspired","maxPreparationTime":30,"dietaryType":"vegan","excludeAllergens":\["peanut","soy"\]\}/,
+      ),
+    ).toBeInTheDocument();
     expect(getRecommendationHistoryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps filters absent when using an old history entry again', async () => {
+    const Destination = () => {
+      const location = useLocation();
+      return <pre>{JSON.stringify(location.state)}</pre>;
+    };
+    getRecommendationHistoryMock.mockResolvedValue(historyResponse);
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/history']}>
+        <Routes>
+          <Route path="/history" element={<RecommendationHistoryPage />} />
+          <Route path="/recommendations" element={<Destination />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const buttons = await screen.findAllByRole('button', { name: 'Use Again' });
+    await user.click(buttons[1]!);
+
+    expect(await screen.findByText('{"ingredients":["onion"],"limit":5}'))
+      .toBeInTheDocument();
   });
 });

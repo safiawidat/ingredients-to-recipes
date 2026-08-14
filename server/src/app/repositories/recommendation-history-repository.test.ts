@@ -74,6 +74,65 @@ describe('createRecommendationHistory', () => {
       }),
     ).rejects.toBe(error);
   });
+
+  it('persists active recommendation filters in the existing JSON field', async () => {
+    const input = {
+      userId: 'user-1',
+      inputIngredients: ['tomato'],
+      filters: {
+        limit: 5,
+        cuisine: 'Mediterranean-inspired' as const,
+        maxPreparationTime: 30,
+        dietaryType: 'vegan' as const,
+        excludeAllergens: ['peanut', 'soy'] as const,
+      },
+      results: {
+        recognizedIngredients: ['tomato'],
+        unknownIngredients: [],
+        recipeIds: [],
+      },
+    };
+    createMock.mockResolvedValue({ id: 'history-filtered' });
+
+    await createRecommendationHistory({
+      ...input,
+      filters: {
+        ...input.filters,
+        excludeAllergens: [...input.filters.excludeAllergens],
+      },
+    });
+
+    expect(createMock).toHaveBeenCalledWith({
+      data: {
+        ...input,
+        filters: {
+          ...input.filters,
+          excludeAllergens: ['peanut', 'soy'],
+        },
+      },
+      select: selectedFields,
+    });
+  });
+
+  it('does not persist an empty allergen selection as an active filter', async () => {
+    createMock.mockResolvedValue({ id: 'history-unfiltered' });
+
+    await createRecommendationHistory({
+      userId: 'user-1',
+      inputIngredients: ['tomato'],
+      filters: { limit: 5, excludeAllergens: [] },
+      results: {
+        recognizedIngredients: ['tomato'],
+        unknownIngredients: [],
+        recipeIds: [],
+      },
+    });
+
+    expect(createMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ filters: { limit: 5 } }),
+      select: selectedFields,
+    });
+  });
 });
 
 describe('findRecommendationHistoryForUser', () => {

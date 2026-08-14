@@ -129,6 +129,68 @@ describe('POST /api/v1/recommendations', () => {
     });
   });
 
+  it('forwards an exact filtered payload', async () => {
+    asUser();
+    const filters = {
+      cuisine: 'Mediterranean-inspired',
+      maxPreparationTime: 30,
+      dietaryType: 'vegan',
+      excludeAllergens: ['peanut', 'soy'],
+    };
+
+    const response = await request(app)
+      .post('/api/v1/recommendations')
+      .set('Cookie', userCookie)
+      .send({ ingredients: ['tomato', 'rice'], limit: 5, filters });
+
+    expect(response.status).toBe(200);
+    expect(recommendRecipesMock).toHaveBeenCalledWith('user-1', {
+      ingredients: ['tomato', 'rice'],
+      limit: 5,
+      filters,
+    });
+  });
+
+  it('accepts and forwards an empty filters object', async () => {
+    asUser();
+
+    const response = await request(app)
+      .post('/api/v1/recommendations')
+      .set('Cookie', userCookie)
+      .send({ ingredients: ['tomato'], filters: {} });
+
+    expect(response.status).toBe(200);
+    expect(recommendRecipesMock).toHaveBeenCalledWith('user-1', {
+      ingredients: ['tomato'],
+      limit: 5,
+      filters: {},
+    });
+  });
+
+  it.each([
+    ['invalid cuisine', { cuisine: 'Mediterranean' }],
+    ['string max time', { maxPreparationTime: '30' }],
+    ['invalid dietary type', { dietaryType: 'high-protein' }],
+    ['invalid allergen', { excludeAllergens: ['nuts'] }],
+    ['unknown nested key', { calories: 500 }],
+  ])('rejects %s with the standard validation envelope', async (_name, filters) => {
+    asUser();
+
+    const response = await request(app)
+      .post('/api/v1/recommendations')
+      .set('Cookie', userCookie)
+      .send({ ingredients: ['tomato'], filters });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Request validation failed',
+      },
+    });
+    expect(recommendRecipesMock).not.toHaveBeenCalled();
+  });
+
   it('returns the service result unchanged under the data envelope', async () => {
     asUser();
 

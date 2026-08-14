@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { getRecommendationHistory } from '../services/recommendation-history-api';
 import type { RecommendationHistoryEntry } from '../types/recommendation-history';
+import type { RecommendationFilters } from '../types/recommendation';
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
@@ -23,6 +24,50 @@ const IngredientList = ({ ingredients, label }: IngredientListProps) => (
       ))}
     </ul>
   </div>
+);
+
+const formatFilterValue = (value: string): string =>
+  value
+    .split('-')
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(' ');
+
+const HistoryFilterSummary = ({ filters }: { filters: RecommendationFilters }) => (
+  <section
+    className="history-filter-summary"
+    aria-label="Applied recommendation filters"
+  >
+    <h3>Filters</h3>
+    <dl>
+      {filters.cuisine !== undefined && (
+        <div>
+          <dt>Cuisine</dt>
+          <dd>{filters.cuisine}</dd>
+        </div>
+      )}
+      {filters.maxPreparationTime !== undefined && (
+        <div>
+          <dt>Max time</dt>
+          <dd>{filters.maxPreparationTime} min</dd>
+        </div>
+      )}
+      {filters.dietaryType !== undefined && (
+        <div>
+          <dt>Diet</dt>
+          <dd>{formatFilterValue(filters.dietaryType)}</dd>
+        </div>
+      )}
+      {filters.excludeAllergens !== undefined &&
+        filters.excludeAllergens.length > 0 && (
+          <div>
+            <dt>Excluded allergens</dt>
+            <dd>
+              {filters.excludeAllergens.map(formatFilterValue).join(', ')}
+            </dd>
+          </div>
+        )}
+    </dl>
+  </section>
 );
 
 export const RecommendationHistoryPage = () => {
@@ -75,6 +120,7 @@ export const RecommendationHistoryPage = () => {
       state: {
         ingredients: entry.ingredients,
         limit: entry.limit,
+        ...(entry.filters !== undefined ? { filters: entry.filters } : {}),
       },
     });
   };
@@ -134,6 +180,10 @@ export const RecommendationHistoryPage = () => {
                     ingredients={entry.unknownIngredients}
                     label="Unknown ingredients"
                   />
+                )}
+
+                {entry.filters !== undefined && (
+                  <HistoryFilterSummary filters={entry.filters} />
                 )}
 
                 <dl className="history-meta">

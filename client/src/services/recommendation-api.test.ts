@@ -46,6 +46,38 @@ describe('recommendation API service', () => {
     });
   });
 
+  it('posts an exact filtered request body unchanged', async () => {
+    apiRequestMock.mockResolvedValue(response);
+    const filteredInput = {
+      ...input,
+      filters: {
+        cuisine: 'Mediterranean-inspired' as const,
+        maxPreparationTime: 30,
+        dietaryType: 'vegan' as const,
+        excludeAllergens: ['peanut', 'soy'] as const,
+      },
+    };
+
+    await recommendRecipes({
+      ...filteredInput,
+      filters: {
+        ...filteredInput.filters,
+        excludeAllergens: [...filteredInput.filters.excludeAllergens],
+      },
+    });
+
+    expect(apiRequestMock).toHaveBeenCalledWith('/recommendations', {
+      method: 'POST',
+      body: {
+        ...filteredInput,
+        filters: {
+          ...filteredInput.filters,
+          excludeAllergens: ['peanut', 'soy'],
+        },
+      },
+    });
+  });
+
   it('returns the backend response envelope unchanged', async () => {
     apiRequestMock.mockResolvedValue(response);
 

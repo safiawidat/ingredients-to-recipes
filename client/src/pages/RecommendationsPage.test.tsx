@@ -155,6 +155,49 @@ describe('RecommendationsPage', () => {
     expect(recommendRecipesMock).not.toHaveBeenCalled();
   });
 
+  it('prefills filters from history without submitting', () => {
+    renderPage({
+      ingredients: ['tomato'],
+      limit: 10,
+      filters: {
+        cuisine: 'Mediterranean-inspired',
+        maxPreparationTime: 30,
+        dietaryType: 'vegan',
+        excludeAllergens: ['soy', 'peanut'],
+      },
+    });
+
+    expect(screen.getByLabelText('Cuisine')).toHaveValue(
+      'Mediterranean-inspired',
+    );
+    expect(screen.getByLabelText('Maximum preparation time')).toHaveValue(
+      '30',
+    );
+    expect(screen.getByLabelText('Dietary type')).toHaveValue('vegan');
+    expect(screen.getByRole('checkbox', { name: 'Peanut' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Soy' })).toBeChecked();
+    expect(recommendRecipesMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps a valid non-preset backend time visible in history prefill', () => {
+    renderPage({
+      ingredients: ['tomato'],
+      limit: 5,
+      filters: { maxPreparationTime: 20 },
+    });
+
+    expect(screen.getByLabelText('Maximum preparation time')).toHaveValue(
+      '20',
+    );
+    expect(
+      within(screen.getByLabelText('Maximum preparation time')).getByRole(
+        'option',
+        { name: '20 minutes' },
+      ),
+    ).toBeInTheDocument();
+    expect(recommendRecipesMock).not.toHaveBeenCalled();
+  });
+
   it('allows editing prefilled history values', async () => {
     const user = userEvent.setup();
     renderPage({ ingredients: ['tomato'], limit: 20 });
@@ -197,6 +240,130 @@ describe('RecommendationsPage', () => {
     expect(screen.getByText(/separated by commas or new lines/i))
       .toBeInTheDocument();
     expect(screen.getByLabelText('Number of results')).toHaveValue('5');
+  });
+
+  it('renders the exact default filter controls and options', () => {
+    renderPage();
+
+    expect(
+      within(screen.getByLabelText('Cuisine')).getAllByRole('option').map(
+        (option) => option.textContent,
+      ),
+    ).toEqual([
+      'Any cuisine',
+      'Mediterranean-inspired',
+      'Home-style',
+      'General',
+      'Italian-inspired',
+      'Asian-inspired',
+      'Middle Eastern-inspired',
+      'Mexican-inspired',
+    ]);
+    expect(
+      within(screen.getByLabelText('Maximum preparation time'))
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual([
+      'Any time',
+      '15 minutes',
+      '30 minutes',
+      '45 minutes',
+      '60 minutes',
+      '75 minutes',
+    ]);
+    expect(
+      within(screen.getByLabelText('Dietary type')).getAllByRole('option').map(
+        (option) => option.textContent,
+      ),
+    ).toEqual([
+      'Any diet',
+      'Vegan',
+      'Vegetarian',
+      'Dairy-free',
+      'Gluten-free',
+    ]);
+    expect(
+      within(
+        screen.getByRole('group', { name: 'Allergens to exclude' }),
+      )
+        .getAllByRole('checkbox')
+        .map((checkbox) => checkbox.parentElement?.textContent),
+    ).toEqual([
+      'Dairy',
+      'Egg',
+      'Fish',
+      'Gluten',
+      'Peanut',
+      'Sesame',
+      'Soy',
+      'Tree nut',
+    ]);
+    expect(screen.getByRole('checkbox', { name: 'Tree nut' }))
+      .not.toBeChecked();
+  });
+
+  it('sends selected filters exactly with stable allergen ordering', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    setInput('tomato');
+
+    await user.selectOptions(
+      screen.getByLabelText('Cuisine'),
+      'Mediterranean-inspired',
+    );
+    await user.selectOptions(
+      screen.getByLabelText('Maximum preparation time'),
+      '30',
+    );
+    await user.selectOptions(screen.getByLabelText('Dietary type'), 'vegan');
+    await user.click(screen.getByRole('checkbox', { name: 'Soy' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Peanut' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Soy' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Soy' }));
+    await submit();
+
+    expect(recommendRecipesMock).toHaveBeenCalledWith({
+      ingredients: ['tomato'],
+      limit: 5,
+      filters: {
+        cuisine: 'Mediterranean-inspired',
+        maxPreparationTime: 30,
+        dietaryType: 'vegan',
+        excludeAllergens: ['peanut', 'soy'],
+      },
+    });
+  });
+
+  it('clears only filters while preserving ingredients, limit, and results', async () => {
+    recommendRecipesMock.mockResolvedValue(successfulResponse);
+    const user = userEvent.setup();
+    renderPage();
+    setInput('tomato');
+    await user.selectOptions(screen.getByLabelText('Number of results'), '10');
+    await user.selectOptions(screen.getByLabelText('Cuisine'), 'General');
+    await user.selectOptions(
+      screen.getByLabelText('Maximum preparation time'),
+      '45',
+    );
+    await user.selectOptions(
+      screen.getByLabelText('Dietary type'),
+      'vegetarian',
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'Dairy' }));
+    await submit();
+    await screen.findByRole('heading', { name: 'First Recipe' });
+
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+    expect(screen.getByRole('textbox')).toHaveValue('tomato');
+    expect(screen.getByLabelText('Number of results')).toHaveValue('10');
+    expect(screen.getByLabelText('Cuisine')).toHaveValue('');
+    expect(screen.getByLabelText('Maximum preparation time')).toHaveValue('');
+    expect(screen.getByLabelText('Dietary type')).toHaveValue('');
+    expect(screen.getByRole('checkbox', { name: 'Dairy' })).not.toBeChecked();
+    expect(screen.getByRole('heading', { name: 'First Recipe' }))
+      .toBeInTheDocument();
+    expect(recommendRecipesMock).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -300,6 +467,8 @@ describe('RecommendationsPage', () => {
     const user = userEvent.setup();
     renderPage();
     setInput('tomato');
+    await user.selectOptions(screen.getByLabelText('Cuisine'), 'General');
+    await user.click(screen.getByRole('checkbox', { name: 'Soy' }));
 
     await user.click(screen.getByRole('button', { name: 'Find recipes' }));
 
@@ -310,6 +479,10 @@ describe('RecommendationsPage', () => {
       .toBeDisabled();
     expect(screen.getByRole('textbox')).toBeDisabled();
     expect(screen.getByLabelText('Number of results')).toBeDisabled();
+    expect(screen.getByLabelText('Cuisine')).toHaveValue('General');
+    expect(screen.getByRole('checkbox', { name: 'Soy' })).toBeChecked();
+    expect(screen.getByLabelText('Cuisine')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: 'Finding recipes...' }));
     expect(recommendRecipesMock).toHaveBeenCalledTimes(1);
@@ -454,8 +627,10 @@ describe('RecommendationsPage', () => {
   });
 
   it('renders recognized ingredients and a successful empty state', async () => {
+    const user = userEvent.setup();
     renderPage();
     setInput('tomato');
+    await user.selectOptions(screen.getByLabelText('Cuisine'), 'General');
 
     await submit();
 
@@ -465,6 +640,7 @@ describe('RecommendationsPage', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'No published recipes currently overlap',
     );
+    expect(screen.getByLabelText('Cuisine')).toHaveValue('General');
   });
 
   it('shows the safe NO_RECOGNIZED_INGREDIENTS message', async () => {
@@ -492,6 +668,8 @@ describe('RecommendationsPage', () => {
     renderPage();
     setInput('Tomato');
     await user.selectOptions(screen.getByLabelText('Number of results'), '10');
+    await user.selectOptions(screen.getByLabelText('Dietary type'), 'vegan');
+    await user.click(screen.getByRole('checkbox', { name: 'Peanut' }));
 
     await submit();
 
@@ -501,6 +679,8 @@ describe('RecommendationsPage', () => {
     expect(document.body.textContent).not.toContain('private network detail');
     expect(screen.getByRole('textbox')).toHaveValue('Tomato');
     expect(screen.getByLabelText('Number of results')).toHaveValue('10');
+    expect(screen.getByLabelText('Dietary type')).toHaveValue('vegan');
+    expect(screen.getByRole('checkbox', { name: 'Peanut' })).toBeChecked();
   });
 
   it('allows retry after failure with the preserved input', async () => {

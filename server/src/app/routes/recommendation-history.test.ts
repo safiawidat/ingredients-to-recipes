@@ -26,6 +26,12 @@ const history = [
     unknownIngredients: [],
     resultCount: 2,
     limit: 5,
+    filters: {
+      cuisine: 'Mediterranean-inspired',
+      maxPreparationTime: 30,
+      dietaryType: 'vegan',
+      excludeAllergens: ['peanut', 'soy'],
+    },
     createdAt: '2026-08-11T08:00:00.000Z',
   },
   {

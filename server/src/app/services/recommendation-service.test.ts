@@ -229,6 +229,58 @@ describe('recommendRecipes', () => {
     expect(findPublishedRecipesWithIngredientsMock).toHaveBeenCalledWith();
   });
 
+  it('forwards validated filters to the single candidate lookup', async () => {
+    findIngredientsByNormalizedValuesMock.mockResolvedValue(
+      new Map([['tomato', tomato]]),
+    );
+    const filters = {
+      cuisine: 'Mediterranean-inspired' as const,
+      maxPreparationTime: 30,
+      dietaryType: 'vegan' as const,
+      excludeAllergens: ['peanut', 'soy'] as const,
+    };
+
+    await recommendRecipes('user-1', {
+      ingredients: ['tomato'],
+      limit: 5,
+      filters: {
+        ...filters,
+        excludeAllergens: [...filters.excludeAllergens],
+      },
+    });
+
+    expect(findPublishedRecipesWithIngredientsMock).toHaveBeenCalledTimes(1);
+    expect(findPublishedRecipesWithIngredientsMock).toHaveBeenCalledWith({
+      ...filters,
+      excludeAllergens: ['peanut', 'soy'],
+    });
+  });
+
+  it('passes only filter-eligible repository candidates to KNN', async () => {
+    findIngredientsByNormalizedValuesMock.mockResolvedValue(
+      new Map([['tomato', tomato]]),
+    );
+    findPublishedRecipesWithIngredientsMock.mockResolvedValue([
+      repositoryCandidate,
+    ]);
+
+    await recommendRecipes('user-1', {
+      ingredients: ['tomato'],
+      limit: 5,
+      filters: { dietaryType: 'vegan' },
+    });
+
+    expect(findKNearestRecipesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        candidates: [
+          expect.objectContaining({
+            recipe: expect.objectContaining({ id: 'recipe-1' }),
+          }),
+        ],
+      }),
+    );
+  });
+
   it('maps repository records to engine candidates without relation metadata', async () => {
     findIngredientsByNormalizedValuesMock.mockResolvedValue(
       new Map([['tomato', tomato]]),
@@ -329,6 +381,35 @@ describe('recommendRecipes', () => {
       },
     });
     expect(result.recommendations).toBe(engineResults);
+  });
+
+  it('persists active recommendation filters with the limit', async () => {
+    findIngredientsByNormalizedValuesMock.mockResolvedValue(
+      new Map([['tomato', tomato]]),
+    );
+
+    await recommendRecipes('user-1', {
+      ingredients: ['tomato'],
+      limit: 5,
+      filters: {
+        cuisine: 'Mediterranean-inspired',
+        maxPreparationTime: 30,
+        dietaryType: 'vegan',
+        excludeAllergens: ['peanut', 'soy'],
+      },
+    });
+
+    expect(createRecommendationHistoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: {
+          limit: 5,
+          cuisine: 'Mediterranean-inspired',
+          maxPreparationTime: 30,
+          dietaryType: 'vegan',
+          excludeAllergens: ['peanut', 'soy'],
+        },
+      }),
+    );
   });
 
   it('persists successful zero-result searches', async () => {

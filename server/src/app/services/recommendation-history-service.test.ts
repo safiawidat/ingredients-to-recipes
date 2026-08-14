@@ -53,6 +53,43 @@ describe('getRecommendationHistory', () => {
     ]);
   });
 
+  it('maps stored recommendation filters without duplicating the limit', async () => {
+    findRecommendationHistoryForUserMock.mockResolvedValue([
+      {
+        ...storedRecord,
+        filters: {
+          limit: 10,
+          cuisine: 'Mediterranean-inspired',
+          maxPreparationTime: 30,
+          dietaryType: 'vegan',
+          excludeAllergens: ['peanut', 'soy'],
+        },
+      },
+    ]);
+
+    await expect(getRecommendationHistory('user-1')).resolves.toEqual([
+      expect.objectContaining({
+        limit: 10,
+        filters: {
+          cuisine: 'Mediterranean-inspired',
+          maxPreparationTime: 30,
+          dietaryType: 'vegan',
+          excludeAllergens: ['peanut', 'soy'],
+        },
+      }),
+    ]);
+  });
+
+  it('omits public filters for stored empty allergen selections', async () => {
+    findRecommendationHistoryForUserMock.mockResolvedValue([
+      { ...storedRecord, filters: { limit: 5, excludeAllergens: [] } },
+    ]);
+
+    const [entry] = await getRecommendationHistory('user-1');
+
+    expect(entry).not.toHaveProperty('filters');
+  });
+
   it('preserves repository order', async () => {
     findRecommendationHistoryForUserMock.mockResolvedValue([
       { ...storedRecord, id: 'newest' },

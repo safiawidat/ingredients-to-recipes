@@ -1,3 +1,5 @@
+import type { RecommendationFilters } from './recommendation';
+
 export interface RecommendationHistoryEntry {
   id: string;
   ingredients: string[];
@@ -5,6 +7,7 @@ export interface RecommendationHistoryEntry {
   unknownIngredients: string[];
   resultCount: number;
   limit: number;
+  filters?: RecommendationFilters;
   createdAt: string;
 }
 

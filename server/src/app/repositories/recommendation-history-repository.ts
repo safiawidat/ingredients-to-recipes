@@ -1,6 +1,7 @@
 import { prisma } from '../../database/prisma.js';
+import type { RecommendationFilters } from '../validation/recommendation-schemas.js';
 
-export interface RecommendationHistoryFilters {
+export interface RecommendationHistoryFilters extends RecommendationFilters {
   limit: number;
 }
 
@@ -33,6 +34,22 @@ const historyRecordSelect = {
   createdAt: true,
 } as const;
 
+const toStoredFilters = ({
+  limit,
+  cuisine,
+  maxPreparationTime,
+  dietaryType,
+  excludeAllergens,
+}: RecommendationHistoryFilters) => ({
+  limit,
+  ...(cuisine !== undefined ? { cuisine } : {}),
+  ...(maxPreparationTime !== undefined ? { maxPreparationTime } : {}),
+  ...(dietaryType !== undefined ? { dietaryType } : {}),
+  ...(excludeAllergens !== undefined && excludeAllergens.length > 0
+    ? { excludeAllergens }
+    : {}),
+});
+
 export const createRecommendationHistory = async (
   input: CreateRecommendationHistoryInput,
 ): Promise<RecommendationHistoryRecord> =>
@@ -40,7 +57,7 @@ export const createRecommendationHistory = async (
     data: {
       userId: input.userId,
       inputIngredients: input.inputIngredients,
-      filters: { limit: input.filters.limit },
+      filters: toStoredFilters(input.filters),
       results: {
         recognizedIngredients: input.results.recognizedIngredients,
         unknownIngredients: input.results.unknownIngredients,

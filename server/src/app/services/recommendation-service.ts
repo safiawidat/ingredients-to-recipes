@@ -6,6 +6,7 @@ import {
 import { createRecommendationHistory } from '../repositories/recommendation-history-repository.js';
 import { normalizeIngredientInputs } from '../utils/ingredient-normalization.js';
 import { findIngredientsByNormalizedValues } from './ingredient-lookup-service.js';
+import type { RecommendationFilters } from '../validation/recommendation-schemas.js';
 import {
   findKNearestRecipes,
   type RecommendationCandidate,
@@ -16,6 +17,7 @@ import {
 export interface RecommendationServiceInput {
   ingredients: string[];
   limit: number;
+  filters?: RecommendationFilters | undefined;
 }
 
 export interface RecommendationServiceResult {
@@ -99,7 +101,9 @@ export const recommendRecipes = async (
   }
 
   const repositoryCandidates =
-    await findPublishedRecipesWithIngredients();
+    input.filters === undefined
+      ? await findPublishedRecipesWithIngredients()
+      : await findPublishedRecipesWithIngredients(input.filters);
   const candidates = repositoryCandidates.map(toRecommendationCandidate);
   const recommendations = findKNearestRecipes({
     userIngredientIds: recognizedIngredientIds,
@@ -110,7 +114,10 @@ export const recommendRecipes = async (
   await createRecommendationHistory({
     userId,
     inputIngredients: normalizedInputs,
-    filters: { limit: input.limit },
+    filters: {
+      limit: input.limit,
+      ...input.filters,
+    },
     results: {
       recognizedIngredients: recognizedIngredients.map(
         (ingredient) => ingredient.name,

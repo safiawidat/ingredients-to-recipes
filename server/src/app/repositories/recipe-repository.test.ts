@@ -192,6 +192,109 @@ describe('findPublishedRecipesWithIngredients', () => {
     expect(findManyRecipeMock).toHaveBeenCalledTimes(1);
     expect(findUniqueRecipeMock).not.toHaveBeenCalled();
   });
+
+  it('uses exact cuisine equality', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+
+    await findPublishedRecipesWithIngredients({
+      cuisine: 'Mediterranean-inspired',
+    });
+
+    expect(findManyRecipeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isPublished: true,
+          cuisine: 'Mediterranean-inspired',
+        },
+      }),
+    );
+  });
+
+  it('requires a non-null preparation time at or below the maximum', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+
+    await findPublishedRecipesWithIngredients({ maxPreparationTime: 30 });
+
+    expect(findManyRecipeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isPublished: true,
+          preparationTime: { not: null, lte: 30 },
+        },
+      }),
+    );
+  });
+
+  it('requires the selected dietary tag', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+
+    await findPublishedRecipesWithIngredients({ dietaryType: 'vegan' });
+
+    expect(findManyRecipeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isPublished: true,
+          dietTags: { has: 'vegan' },
+        },
+      }),
+    );
+  });
+
+  it('excludes recipes containing any selected allergen', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+
+    await findPublishedRecipesWithIngredients({
+      excludeAllergens: ['peanut', 'soy'],
+    });
+
+    expect(findManyRecipeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isPublished: true,
+          NOT: { allergens: { hasSome: ['peanut', 'soy'] } },
+        },
+      }),
+    );
+  });
+
+  it('combines all filters with AND in one candidate query', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+
+    await findPublishedRecipesWithIngredients({
+      cuisine: 'Mediterranean-inspired',
+      maxPreparationTime: 30,
+      dietaryType: 'vegan',
+      excludeAllergens: ['peanut', 'soy'],
+    });
+
+    expect(findManyRecipeMock).toHaveBeenCalledTimes(1);
+    expect(findManyRecipeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isPublished: true,
+          cuisine: 'Mediterranean-inspired',
+          preparationTime: { not: null, lte: 30 },
+          dietTags: { has: 'vegan' },
+          NOT: { allergens: { hasSome: ['peanut', 'soy'] } },
+        },
+      }),
+    );
+    expect(findUniqueRecipeMock).not.toHaveBeenCalled();
+  });
+
+  it('treats empty filters and an empty allergen list like the old query', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+
+    await findPublishedRecipesWithIngredients({});
+    await findPublishedRecipesWithIngredients({ excludeAllergens: [] });
+
+    expect(findManyRecipeMock).toHaveBeenCalledTimes(2);
+    for (const [query] of findManyRecipeMock.mock.calls) {
+      expect(query).toEqual(
+        expect.objectContaining({ where: { isPublished: true } }),
+      );
+    }
+  });
 });
 
 describe('findAllRecipes', () => {

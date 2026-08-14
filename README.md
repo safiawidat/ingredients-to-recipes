@@ -131,6 +131,21 @@ Generation and validation do not write to PostgreSQL. Database import remains
 a separate manual action through the ADMIN recipe importer; these files are
 not claimed to have been imported.
 
+## KNN Evaluation
+
+Evaluation-only tooling compares the production ingredient-coverage ranking
+with a simpler baseline that ranks recipes by matched ingredient count. It
+uses the source-controlled seed and generated recipe data entirely in memory;
+no database is required and production KNN behavior is unchanged.
+
+```powershell
+npm.cmd run evaluate:knn --prefix server
+npm.cmd run benchmark:knn --prefix server
+```
+
+The methodology, measured quality results, benchmark environment, limitations,
+and reproduction commands are documented in `docs/knn-evaluation.md`.
+
 ## API Endpoints
 
 GET /api/v1/health

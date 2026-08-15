@@ -1,0 +1,557 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { Prisma } from '../../generated/prisma/client.js';
+
+const {
+  countRecipeMock,
+  createRecipeMock,
+  findManyRecipeMock,
+  findUniqueRecipeMock,
+  updateRecipeMock,
+} = vi.hoisted(() => ({
+  countRecipeMock: vi.fn(),
+  createRecipeMock: vi.fn(),
+  findManyRecipeMock: vi.fn(),
+  findUniqueRecipeMock: vi.fn(),
+  updateRecipeMock: vi.fn(),
+}));
+
+vi.mock('../../database/prisma.js', () => ({
+  prisma: {
+    recipe: {
+      findMany: findManyRecipeMock,
+      count: countRecipeMock,
+      findUnique: findUniqueRecipeMock,
+      create: createRecipeMock,
+      update: updateRecipeMock,
+    },
+  },
+}));
+
+import {
+  createRecipe,
+  findAllRecipes,
+  findPublishedRecipes,
+  findPublishedRecipesWithIngredients,
+  findRecipeById,
+  findRecipeByIdForUser,
+  updateRecipe,
+} from './recipe-repository.js';
+
+const createdAt = new Date('2026-07-28T00:00:00.000Z');
+const updatedAt = new Date('2026-07-28T00:00:00.000Z');
+
+const recipeSummary = {
+  id: 'recipe-1',
+  name: 'Tomato Soup',
+  description: 'A warm soup',
+  cuisine: 'Italian',
+  preparationTime: 20,
+  servings: 4,
+  imageUrl: null,
+  dietTags: ['vegetarian'],
+  allergens: [],
+  isPublished: true,
+  createdAt,
+  updatedAt,
+};
+
+const recipeDetail = {
+  id: 'recipe-1',
+  name: 'Tomato Soup',
+  description: 'A warm soup',
+  instructions: 'Simmer everything.',
+  cuisine: 'Italian',
+  preparationTime: 20,
+  servings: 4,
+  imageUrl: null,
+  sourceUrl: null,
+  dietTags: ['vegetarian'],
+  allergens: [],
+  isPublished: true,
+  createdAt,
+  updatedAt,
+  ingredients: [
+    {
+      id: 'recipe-ingredient-1',
+      quantity: null,
+      unit: null,
+      category: 'MAIN',
+      ingredient: { id: 'ingredient-1', name: 'tomato' },
+    },
+  ],
+};
+
+const publishedRecipeWithIngredients = {
+  id: 'recipe-1',
+  name: 'Tomato Soup',
+  description: 'A warm soup',
+  cuisine: 'Italian',
+  preparationTime: 20,
+  servings: 4,
+  imageUrl: null,
+  dietTags: ['vegetarian'],
+  allergens: [],
+  ingredients: [
+    {
+      ingredient: { id: 'ingredient-1', name: 'tomato' },
+    },
+  ],
+};
+
+beforeEach(() => {
+  vi.resetAllMocks();
+});
+
+describe('findPublishedRecipes', () => {
+  it('returns published recipes with pagination and a total count', async () => {
+    findManyRecipeMock.mockResolvedValue([recipeSummary]);
+    countRecipeMock.mockResolvedValue(1);
+
+    const result = await findPublishedRecipes({ skip: 0, take: 10 });
+
+    expect(findManyRecipeMock).toHaveBeenCalledWith({
+      where: { isPublished: true },
+      skip: 0,
+      take: 10,
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: expect.any(Object),
+    });
+    expect(countRecipeMock).toHaveBeenCalledWith({
+      where: { isPublished: true },
+    });
+    expect(result).toEqual({ recipes: [recipeSummary], total: 1 });
+  });
+
+  it('applies the requested skip and take values', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+    countRecipeMock.mockResolvedValue(0);
+
+    await findPublishedRecipes({ skip: 20, take: 5 });
+
+    expect(findManyRecipeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 20, take: 5 }),
+    );
+  });
+
+  it('returns an empty result cleanly when no recipes are published', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+    countRecipeMock.mockResolvedValue(0);
+
+    const result = await findPublishedRecipes({ skip: 0, take: 10 });
+
+    expect(result).toEqual({ recipes: [], total: 0 });
+  });
+});
+
+describe('findPublishedRecipesWithIngredients', () => {
+  it('fetches every published candidate and canonical ingredient in one unpaginated query', async () => {
+    findManyRecipeMock.mockResolvedValue([publishedRecipeWithIngredients]);
+
+    await findPublishedRecipesWithIngredients();
+
+    expect(findManyRecipeMock).toHaveBeenCalledTimes(1);
+    expect(findManyRecipeMock).toHaveBeenCalledWith({
+      where: { isPublished: true },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        cuisine: true,
+        preparationTime: true,
+        servings: true,
+        imageUrl: true,
+        dietTags: true,
+        allergens: true,
+        ingredients: {
+          select: {
+            ingredient: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
+    });
+    expect(countRecipeMock).not.toHaveBeenCalled();
+
+    const query = findManyRecipeMock.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(query).not.toHaveProperty('skip');
+    expect(query).not.toHaveProperty('take');
+  });
+
+  it('returns the Prisma candidate shape without per-recipe lookups', async () => {
+    findManyRecipeMock.mockResolvedValue([publishedRecipeWithIngredients]);
+
+    await expect(findPublishedRecipesWithIngredients()).resolves.toEqual([
+      publishedRecipeWithIngredients,
+    ]);
+    expect(findManyRecipeMock).toHaveBeenCalledTimes(1);
+    expect(findUniqueRecipeMock).not.toHaveBeenCalled();
+  });
+
+  it('uses exact cuisine equality', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+
+    await findPublishedRecipesWithIngredients({
+      cuisine: 'Mediterranean-inspired',
+    });
+
+    expect(findManyRecipeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isPublished: true,
+          cuisine: 'Mediterranean-inspired',
+        },
+      }),
+    );
+  });
+
+  it('requires a non-null preparation time at or below the maximum', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+
+    await findPublishedRecipesWithIngredients({ maxPreparationTime: 30 });
+
+    expect(findManyRecipeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isPublished: true,
+          preparationTime: { not: null, lte: 30 },
+        },
+      }),
+    );
+  });
+
+  it('requires the selected dietary tag', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+
+    await findPublishedRecipesWithIngredients({ dietaryType: 'vegan' });
+
+    expect(findManyRecipeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isPublished: true,
+          dietTags: { has: 'vegan' },
+        },
+      }),
+    );
+  });
+
+  it('excludes recipes containing any selected allergen', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+
+    await findPublishedRecipesWithIngredients({
+      excludeAllergens: ['peanut', 'soy'],
+    });
+
+    expect(findManyRecipeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isPublished: true,
+          NOT: { allergens: { hasSome: ['peanut', 'soy'] } },
+        },
+      }),
+    );
+  });
+
+  it('combines all filters with AND in one candidate query', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+
+    await findPublishedRecipesWithIngredients({
+      cuisine: 'Mediterranean-inspired',
+      maxPreparationTime: 30,
+      dietaryType: 'vegan',
+      excludeAllergens: ['peanut', 'soy'],
+    });
+
+    expect(findManyRecipeMock).toHaveBeenCalledTimes(1);
+    expect(findManyRecipeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isPublished: true,
+          cuisine: 'Mediterranean-inspired',
+          preparationTime: { not: null, lte: 30 },
+          dietTags: { has: 'vegan' },
+          NOT: { allergens: { hasSome: ['peanut', 'soy'] } },
+        },
+      }),
+    );
+    expect(findUniqueRecipeMock).not.toHaveBeenCalled();
+  });
+
+  it('treats empty filters and an empty allergen list like the old query', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+
+    await findPublishedRecipesWithIngredients({});
+    await findPublishedRecipesWithIngredients({ excludeAllergens: [] });
+
+    expect(findManyRecipeMock).toHaveBeenCalledTimes(2);
+    for (const [query] of findManyRecipeMock.mock.calls) {
+      expect(query).toEqual(
+        expect.objectContaining({ where: { isPublished: true } }),
+      );
+    }
+  });
+});
+
+describe('findAllRecipes', () => {
+  it('lists recipes without a publication filter in deterministic order', async () => {
+    const unpublishedRecipe = {
+      ...recipeSummary,
+      id: 'recipe-2',
+      isPublished: false,
+    };
+    findManyRecipeMock.mockResolvedValue([recipeSummary, unpublishedRecipe]);
+    countRecipeMock.mockResolvedValue(2);
+
+    const result = await findAllRecipes({ skip: 5, take: 5 });
+
+    expect(findManyRecipeMock).toHaveBeenCalledWith({
+      where: {},
+      skip: 5,
+      take: 5,
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: expect.any(Object),
+    });
+    expect(countRecipeMock).toHaveBeenCalledWith({ where: {} });
+    expect(result).toEqual({
+      recipes: [recipeSummary, unpublishedRecipe],
+      total: 2,
+    });
+  });
+
+  it('returns an empty unfiltered result cleanly', async () => {
+    findManyRecipeMock.mockResolvedValue([]);
+    countRecipeMock.mockResolvedValue(0);
+
+    await expect(findAllRecipes({ skip: 0, take: 20 })).resolves.toEqual({
+      recipes: [],
+      total: 0,
+    });
+  });
+});
+
+describe('findRecipeById', () => {
+  it('returns the full recipe detail with ingredients when found', async () => {
+    findUniqueRecipeMock.mockResolvedValue(recipeDetail);
+
+    const result = await findRecipeById('recipe-1');
+
+    expect(findUniqueRecipeMock).toHaveBeenCalledWith({
+      where: { id: 'recipe-1' },
+      select: expect.any(Object),
+    });
+    const query = findUniqueRecipeMock.mock.calls[0]?.[0];
+    expect(query.select.ingredients.orderBy).toEqual([
+      { category: 'asc' },
+      { ingredient: { name: 'asc' } },
+      { ingredientId: 'asc' },
+    ]);
+    expect(result).toEqual(recipeDetail);
+  });
+
+  it('returns null instead of throwing when the recipe does not exist', async () => {
+    findUniqueRecipeMock.mockResolvedValue(null);
+
+    await expect(findRecipeById('missing-recipe')).resolves.toBeNull();
+  });
+});
+
+describe('findRecipeByIdForUser', () => {
+  it('loads detail and filtered favorite state in the same query', async () => {
+    const detailForUser = {
+      ...recipeDetail,
+      favorites: [{ id: 'favorite-1' }],
+    };
+    findUniqueRecipeMock.mockResolvedValue(detailForUser);
+
+    await expect(
+      findRecipeByIdForUser('recipe-1', 'user-1'),
+    ).resolves.toEqual(detailForUser);
+
+    expect(findUniqueRecipeMock).toHaveBeenCalledTimes(1);
+    expect(findUniqueRecipeMock).toHaveBeenCalledWith({
+      where: { id: 'recipe-1' },
+      select: expect.objectContaining({
+        ingredients: expect.any(Object),
+        favorites: {
+          where: { userId: 'user-1' },
+          select: { id: true },
+        },
+      }),
+    });
+  });
+});
+
+describe('createRecipe', () => {
+  it('creates a recipe with its nested ingredients and returns the detail', async () => {
+    createRecipeMock.mockResolvedValue(recipeDetail);
+
+    const result = await createRecipe({
+      name: 'Tomato Soup',
+      description: 'A warm soup',
+      instructions: 'Simmer everything.',
+      cuisine: 'Italian',
+      preparationTime: 20,
+      servings: 4,
+      dietTags: ['vegetarian'],
+      allergens: [],
+      isPublished: true,
+      ingredients: [{ ingredientId: 'ingredient-1', category: 'MAIN' }],
+    });
+
+    expect(createRecipeMock).toHaveBeenCalledWith({
+      data: {
+        name: 'Tomato Soup',
+        description: 'A warm soup',
+        instructions: 'Simmer everything.',
+        cuisine: 'Italian',
+        preparationTime: 20,
+        servings: 4,
+        imageUrl: null,
+        sourceUrl: null,
+        dietTags: ['vegetarian'],
+        allergens: [],
+        isPublished: true,
+        ingredients: {
+          create: [{ ingredientId: 'ingredient-1', category: 'MAIN' }],
+        },
+      },
+      select: expect.any(Object),
+    });
+    expect(result).toEqual(recipeDetail);
+  });
+
+  it('defaults optional scalar fields when they are omitted', async () => {
+    createRecipeMock.mockResolvedValue(recipeDetail);
+
+    await createRecipe({
+      name: 'Tomato Soup',
+      instructions: 'Simmer everything.',
+      ingredients: [],
+    });
+
+    expect(createRecipeMock).toHaveBeenCalledWith({
+      data: {
+        name: 'Tomato Soup',
+        description: null,
+        instructions: 'Simmer everything.',
+        cuisine: null,
+        preparationTime: null,
+        servings: null,
+        imageUrl: null,
+        sourceUrl: null,
+        dietTags: [],
+        allergens: [],
+        isPublished: true,
+        ingredients: { create: [] },
+      },
+      select: expect.any(Object),
+    });
+  });
+
+  it('omits unset quantity, unit, and category from each recipe ingredient', async () => {
+    createRecipeMock.mockResolvedValue(recipeDetail);
+
+    await createRecipe({
+      name: 'Tomato Soup',
+      instructions: 'Simmer everything.',
+      ingredients: [{ ingredientId: 'ingredient-1' }],
+    });
+
+    expect(createRecipeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          ingredients: {
+            create: [{ ingredientId: 'ingredient-1' }],
+          },
+        }),
+      }),
+    );
+  });
+});
+
+describe('updateRecipe', () => {
+  it('sends an explicit null to clear a nullable field, distinct from omitting it', async () => {
+    updateRecipeMock.mockResolvedValue(recipeDetail);
+
+    await updateRecipe('recipe-1', { description: null });
+
+    expect(updateRecipeMock).toHaveBeenCalledWith({
+      where: { id: 'recipe-1' },
+      data: { description: null },
+      select: expect.any(Object),
+    });
+  });
+
+  it('updates only the fields that were provided', async () => {
+    updateRecipeMock.mockResolvedValue({
+      ...recipeDetail,
+      name: 'Updated Soup',
+    });
+
+    await updateRecipe('recipe-1', { name: 'Updated Soup' });
+
+    expect(updateRecipeMock).toHaveBeenCalledWith({
+      where: { id: 'recipe-1' },
+      data: { name: 'Updated Soup' },
+      select: expect.any(Object),
+    });
+  });
+
+  it('replaces the full ingredient set when ingredients are provided', async () => {
+    updateRecipeMock.mockResolvedValue(recipeDetail);
+
+    await updateRecipe('recipe-1', {
+      ingredients: [{ ingredientId: 'ingredient-2', unit: 'cup' }],
+    });
+
+    expect(updateRecipeMock).toHaveBeenCalledWith({
+      where: { id: 'recipe-1' },
+      data: {
+        ingredients: {
+          deleteMany: {},
+          create: [{ ingredientId: 'ingredient-2', unit: 'cup' }],
+        },
+      },
+      select: expect.any(Object),
+    });
+  });
+
+  it('leaves ingredients untouched when they are not provided', async () => {
+    updateRecipeMock.mockResolvedValue(recipeDetail);
+
+    await updateRecipe('recipe-1', { isPublished: false });
+
+    expect(updateRecipeMock).toHaveBeenCalledWith({
+      where: { id: 'recipe-1' },
+      data: { isPublished: false },
+      select: expect.any(Object),
+    });
+  });
+
+  it('returns null instead of throwing when the recipe does not exist', async () => {
+    updateRecipeMock.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Record to update not found', {
+        code: 'P2025',
+        clientVersion: '7.9.0',
+      }),
+    );
+
+    await expect(
+      updateRecipe('missing-recipe', { name: 'Updated Soup' }),
+    ).resolves.toBeNull();
+  });
+
+  it('propagates unrelated errors instead of swallowing them', async () => {
+    const unrelatedError = new Error('Database connection lost');
+    updateRecipeMock.mockRejectedValue(unrelatedError);
+
+    await expect(
+      updateRecipe('recipe-1', { name: 'Updated Soup' }),
+    ).rejects.toBe(unrelatedError);
+  });
+});

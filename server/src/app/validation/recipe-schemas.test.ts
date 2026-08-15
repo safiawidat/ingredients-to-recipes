@@ -105,6 +105,25 @@ describe('listRecipesQuerySchema', () => {
       listRecipesQuerySchema.safeParse({ pageSize: 100 }).success,
     ).toBe(true);
   });
+
+  it('accepts the maximum practical page and rejects larger or unsafe values', () => {
+    expect(listRecipesQuerySchema.safeParse({ page: 10_000 }).success).toBe(
+      true,
+    );
+    expect(listRecipesQuerySchema.safeParse({ page: 10_001 }).success).toBe(
+      false,
+    );
+    expect(
+      listRecipesQuerySchema.safeParse({ page: Number.MAX_SAFE_INTEGER + 1 })
+        .success,
+    ).toBe(false);
+  });
+
+  it('rejects a whitespace-only cuisine filter', () => {
+    expect(listRecipesQuerySchema.safeParse({ cuisine: '   ' }).success).toBe(
+      false,
+    );
+  });
 });
 
 describe('createRecipeSchema', () => {
@@ -240,6 +259,38 @@ describe('createRecipeSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it.each(['ftp://example.com/recipe', 'data:text/plain,recipe', 'javascript:alert(1)'])(
+    'rejects non-HTTP recipe URLs: %s',
+    (url) => {
+      expect(
+        createRecipeSchema.safeParse({
+          ...minimalCreateInput,
+          imageUrl: url,
+        }).success,
+      ).toBe(false);
+      expect(updateRecipeSchema.safeParse({ sourceUrl: url }).success).toBe(
+        false,
+      );
+    },
+  );
+
+  it('accepts HTTP and HTTPS URLs up to the practical length bound', () => {
+    const maximumLengthUrl = `https://example.com/${'a'.repeat(2028)}`;
+
+    expect(maximumLengthUrl).toHaveLength(2048);
+    expect(
+      createRecipeSchema.safeParse({
+        ...minimalCreateInput,
+        imageUrl: 'http://example.com/image.jpg',
+        sourceUrl: maximumLengthUrl,
+      }).success,
+    ).toBe(true);
+    expect(
+      updateRecipeSchema.safeParse({ sourceUrl: `${maximumLengthUrl}a` })
+        .success,
+    ).toBe(false);
+  });
+
   it('rejects an empty ingredients array', () => {
     const result = createRecipeSchema.safeParse({
       ...minimalCreateInput,
@@ -288,6 +339,15 @@ describe('createRecipeSchema', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it('rejects whitespace-only ingredient units', () => {
+    expect(
+      createRecipeSchema.safeParse({
+        ...minimalCreateInput,
+        ingredients: [{ ingredientId: 'ingredient-1', unit: '   ' }],
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects an invalid category', () => {
@@ -342,6 +402,48 @@ describe('createRecipeSchema', () => {
     expect(result.success).toBe(true);
     expect(result.data?.allergens).toEqual(['nuts']);
   });
+
+  it('enforces tag count and item length bounds', () => {
+    const maximumTags = Array.from({ length: 50 }, (_, index) => `tag-${index}`);
+
+    expect(
+      createRecipeSchema.safeParse({
+        ...minimalCreateInput,
+        dietTags: maximumTags,
+        allergens: ['a'.repeat(100)],
+      }).success,
+    ).toBe(true);
+    expect(
+      createRecipeSchema.safeParse({
+        ...minimalCreateInput,
+        dietTags: [...maximumTags, 'one-too-many'],
+      }).success,
+    ).toBe(false);
+    expect(
+      createRecipeSchema.safeParse({
+        ...minimalCreateInput,
+        allergens: ['a'.repeat(101)],
+      }).success,
+    ).toBe(false);
+  });
+
+  it.each(['description', 'cuisine'] as const)(
+    'rejects whitespace-only %s while preserving null',
+    (field) => {
+      expect(
+        createRecipeSchema.safeParse({
+          ...minimalCreateInput,
+          [field]: '   ',
+        }).success,
+      ).toBe(false);
+      expect(
+        createRecipeSchema.safeParse({
+          ...minimalCreateInput,
+          [field]: null,
+        }).success,
+      ).toBe(true);
+    },
+  );
 });
 
 describe('updateRecipeSchema', () => {
@@ -415,6 +517,15 @@ describe('updateRecipeSchema', () => {
       updateRecipeSchema.safeParse({ imageUrl: 'not-a-url' }).success,
     ).toBe(false);
   });
+
+  it.each(['description', 'cuisine'] as const)(
+    'rejects a whitespace-only %s update',
+    (field) => {
+      expect(updateRecipeSchema.safeParse({ [field]: '   ' }).success).toBe(
+        false,
+      );
+    },
+  );
 
   it('preserves nullable fields when explicitly set to null', () => {
     const result = updateRecipeSchema.safeParse({

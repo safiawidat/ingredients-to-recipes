@@ -57,6 +57,29 @@ const aliasNotFoundError = (): ApplicationError =>
     'The specified alias does not exist',
   );
 
+const ensureAliasDoesNotConflict = async (
+  alias: string,
+  currentAliasId?: string,
+): Promise<void> => {
+  const [canonicalIngredient, existingAlias] = await Promise.all([
+    prisma.ingredient.findUnique({
+      where: { name: alias },
+      select: { id: true },
+    }),
+    prisma.ingredientAlias.findUnique({
+      where: { alias },
+      select: { id: true },
+    }),
+  ]);
+
+  if (
+    canonicalIngredient ||
+    (existingAlias && existingAlias.id !== currentAliasId)
+  ) {
+    throw duplicateAliasError();
+  }
+};
+
 const isAliasConflict = (error: unknown): boolean => {
   if (
     !(error instanceof Prisma.PrismaClientKnownRequestError) ||
@@ -97,14 +120,7 @@ export const createIngredientAlias = async (
     throw ingredientNotFoundError();
   }
 
-  const existingAlias = await prisma.ingredientAlias.findUnique({
-    where: { alias: input.alias },
-    select: { id: true },
-  });
-
-  if (existingAlias) {
-    throw duplicateAliasError();
-  }
+  await ensureAliasDoesNotConflict(input.alias);
 
   try {
     return await prisma.ingredientAlias.create({
@@ -129,7 +145,7 @@ export const updateIngredientAlias = async (
 ): Promise<IngredientAliasWithIngredient> => {
   const existingAlias = await prisma.ingredientAlias.findUnique({
     where: { id },
-    select: { id: true },
+    select: { id: true, alias: true },
   });
 
   if (!existingAlias) {
@@ -147,16 +163,7 @@ export const updateIngredientAlias = async (
     }
   }
 
-  if (input.alias !== undefined) {
-    const conflictingAlias = await prisma.ingredientAlias.findUnique({
-      where: { alias: input.alias },
-      select: { id: true },
-    });
-
-    if (conflictingAlias && conflictingAlias.id !== id) {
-      throw duplicateAliasError();
-    }
-  }
+  await ensureAliasDoesNotConflict(input.alias ?? existingAlias.alias, id);
 
   try {
     return await prisma.ingredientAlias.update({

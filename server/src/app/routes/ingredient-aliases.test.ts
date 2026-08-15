@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   createIngredientAliasMock,
   deleteIngredientAliasMock,
+  findAuthenticationUserMock,
   findManyIngredientAliasMock,
   findUniqueIngredientMock,
   findUniqueIngredientAliasMock,
@@ -12,11 +13,16 @@ const {
 } = vi.hoisted(() => ({
   createIngredientAliasMock: vi.fn(),
   deleteIngredientAliasMock: vi.fn(),
+  findAuthenticationUserMock: vi.fn(),
   findManyIngredientAliasMock: vi.fn(),
   findUniqueIngredientMock: vi.fn(),
   findUniqueIngredientAliasMock: vi.fn(),
   updateIngredientAliasMock: vi.fn(),
   verifyAccessTokenMock: vi.fn(),
+}));
+
+vi.mock('../services/authentication-service.js', () => ({
+  findAuthenticationUser: findAuthenticationUserMock,
 }));
 
 vi.mock('../../database/prisma.js', () => ({
@@ -61,6 +67,10 @@ const aliasRecord = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  findAuthenticationUserMock.mockImplementation(async (id: string) => ({
+    id,
+    role: id.startsWith('admin') ? 'ADMIN' : 'USER',
+  }));
 });
 
 describe('GET /api/v1/admin/ingredient-aliases', () => {
@@ -111,7 +121,9 @@ describe('GET /api/v1/admin/ingredient-aliases', () => {
 describe('POST /api/v1/admin/ingredient-aliases', () => {
   it('creates an alias for an admin', async () => {
     asAdmin();
-    findUniqueIngredientMock.mockResolvedValue({ id: 'ingredient-1' });
+    findUniqueIngredientMock
+      .mockResolvedValueOnce({ id: 'ingredient-1' })
+      .mockResolvedValueOnce(null);
     findUniqueIngredientAliasMock.mockResolvedValue(null);
     createIngredientAliasMock.mockResolvedValue(aliasRecord);
 
@@ -174,7 +186,9 @@ describe('POST /api/v1/admin/ingredient-aliases', () => {
 
   it('rejects a duplicate alias', async () => {
     asAdmin();
-    findUniqueIngredientMock.mockResolvedValue({ id: 'ingredient-1' });
+    findUniqueIngredientMock
+      .mockResolvedValueOnce({ id: 'ingredient-1' })
+      .mockResolvedValueOnce(null);
     findUniqueIngredientAliasMock.mockResolvedValue({ id: 'alias-1' });
 
     const response = await request(app)
@@ -189,6 +203,23 @@ describe('POST /api/v1/admin/ingredient-aliases', () => {
         message: 'An alias with this name already exists',
       },
     });
+    expect(createIngredientAliasMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an alias that collides with a canonical ingredient name', async () => {
+    asAdmin();
+    findUniqueIngredientMock
+      .mockResolvedValueOnce({ id: 'ingredient-1' })
+      .mockResolvedValueOnce({ id: 'ingredient-2' });
+    findUniqueIngredientAliasMock.mockResolvedValue(null);
+
+    const response = await request(app)
+      .post('/api/v1/admin/ingredient-aliases')
+      .set('Cookie', adminCookie)
+      .send({ alias: 'tomato', ingredientId: 'ingredient-1' });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe('ALIAS_ALREADY_EXISTS');
     expect(createIngredientAliasMock).not.toHaveBeenCalled();
   });
 
@@ -217,7 +248,10 @@ describe('POST /api/v1/admin/ingredient-aliases', () => {
 describe('PATCH /api/v1/admin/ingredient-aliases/:id', () => {
   it('updates an alias for an admin', async () => {
     asAdmin();
-    findUniqueIngredientAliasMock.mockResolvedValue({ id: 'alias-1' });
+    findUniqueIngredientAliasMock
+      .mockResolvedValueOnce({ id: 'alias-1', alias: 'love apple' })
+      .mockResolvedValueOnce(null);
+    findUniqueIngredientMock.mockResolvedValue(null);
     updateIngredientAliasMock.mockResolvedValue({
       ...aliasRecord,
       alias: 'tomatoes',
@@ -239,8 +273,12 @@ describe('PATCH /api/v1/admin/ingredient-aliases/:id', () => {
 
   it('re-parents an alias to a different ingredient without changing its text', async () => {
     asAdmin();
-    findUniqueIngredientAliasMock.mockResolvedValue({ id: 'alias-1' });
-    findUniqueIngredientMock.mockResolvedValue({ id: 'ingredient-2' });
+    findUniqueIngredientAliasMock
+      .mockResolvedValueOnce({ id: 'alias-1', alias: 'love apple' })
+      .mockResolvedValueOnce({ id: 'alias-1' });
+    findUniqueIngredientMock
+      .mockResolvedValueOnce({ id: 'ingredient-2' })
+      .mockResolvedValueOnce(null);
     updateIngredientAliasMock.mockResolvedValue({
       ...aliasRecord,
       ingredientId: 'ingredient-2',
@@ -285,7 +323,10 @@ describe('PATCH /api/v1/admin/ingredient-aliases/:id', () => {
 
   it('returns 404 when the new ingredient does not exist', async () => {
     asAdmin();
-    findUniqueIngredientAliasMock.mockResolvedValue({ id: 'alias-1' });
+    findUniqueIngredientAliasMock.mockResolvedValue({
+      id: 'alias-1',
+      alias: 'love apple',
+    });
     findUniqueIngredientMock.mockResolvedValue(null);
 
     const response = await request(app)
@@ -306,8 +347,9 @@ describe('PATCH /api/v1/admin/ingredient-aliases/:id', () => {
   it('rejects a conflicting alias', async () => {
     asAdmin();
     findUniqueIngredientAliasMock
-      .mockResolvedValueOnce({ id: 'alias-1' })
+      .mockResolvedValueOnce({ id: 'alias-1', alias: 'love apple' })
       .mockResolvedValueOnce({ id: 'alias-2' });
+    findUniqueIngredientMock.mockResolvedValue(null);
 
     const response = await request(app)
       .patch('/api/v1/admin/ingredient-aliases/alias-1')
@@ -321,6 +363,23 @@ describe('PATCH /api/v1/admin/ingredient-aliases/:id', () => {
         message: 'An alias with this name already exists',
       },
     });
+    expect(updateIngredientAliasMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an update that collides with a canonical ingredient name', async () => {
+    asAdmin();
+    findUniqueIngredientAliasMock
+      .mockResolvedValueOnce({ id: 'alias-1', alias: 'love apple' })
+      .mockResolvedValueOnce(null);
+    findUniqueIngredientMock.mockResolvedValue({ id: 'ingredient-2' });
+
+    const response = await request(app)
+      .patch('/api/v1/admin/ingredient-aliases/alias-1')
+      .set('Cookie', adminCookie)
+      .send({ alias: 'tomato' });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe('ALIAS_ALREADY_EXISTS');
     expect(updateIngredientAliasMock).not.toHaveBeenCalled();
   });
 

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { env } from '../../config/env.js';
 import { UserRole } from '../../generated/prisma/enums.js';
 import { ApplicationError } from '../errors/application-error.js';
+import { findAuthenticationUser } from '../services/authentication-service.js';
 import { verifyAccessToken } from '../utils/token.js';
 
 const authenticatedClaimsSchema = z.object({
@@ -11,7 +12,18 @@ const authenticatedClaimsSchema = z.object({
   role: z.enum(UserRole),
 });
 
-export const authenticate: RequestHandler = (request, _response, next) => {
+const invalidAuthTokenError = (): ApplicationError =>
+  new ApplicationError(
+    401,
+    'INVALID_AUTH_TOKEN',
+    'Invalid or expired authentication token',
+  );
+
+export const authenticate: RequestHandler = async (
+  request,
+  _response,
+  next,
+) => {
   const token = request.cookies?.[env.AUTH_COOKIE_NAME] as unknown;
 
   if (typeof token !== 'string' || token.length === 0) {
@@ -22,20 +34,21 @@ export const authenticate: RequestHandler = (request, _response, next) => {
     );
   }
 
-  try {
-    const claims = authenticatedClaimsSchema.parse(verifyAccessToken(token));
+  let claims: z.infer<typeof authenticatedClaimsSchema>;
 
-    request.user = {
-      id: claims.sub,
-      role: claims.role,
-    };
+  try {
+    claims = authenticatedClaimsSchema.parse(verifyAccessToken(token));
   } catch {
-    throw new ApplicationError(
-      401,
-      'INVALID_AUTH_TOKEN',
-      'Invalid or expired authentication token',
-    );
+    throw invalidAuthTokenError();
   }
+
+  const currentUser = await findAuthenticationUser(claims.sub);
+
+  if (!currentUser) {
+    throw invalidAuthTokenError();
+  }
+
+  request.user = currentUser;
 
   next();
 };

@@ -6,8 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UserRole } from '../../generated/prisma/enums.js';
 import { errorHandler } from './error-handler.js';
 
-const { verifyAccessTokenMock } = vi.hoisted(() => ({
+const { findAuthenticationUserMock, verifyAccessTokenMock } = vi.hoisted(() => ({
+  findAuthenticationUserMock: vi.fn(),
   verifyAccessTokenMock: vi.fn(),
+}));
+
+vi.mock('../services/authentication-service.js', () => ({
+  findAuthenticationUser: findAuthenticationUserMock,
 }));
 
 vi.mock('../utils/token.js', () => ({
@@ -31,6 +36,10 @@ const createTestApp = (...handlers: RequestHandler[]) => {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  findAuthenticationUserMock.mockImplementation(async (id: string) => ({
+    id,
+    role: UserRole.USER,
+  }));
 });
 
 describe('authenticate', () => {
@@ -46,6 +55,7 @@ describe('authenticate', () => {
         message: 'Authentication required',
       },
     });
+    expect(findAuthenticationUserMock).not.toHaveBeenCalled();
   });
 
   it('attaches only the user id and role for a valid token', async () => {
@@ -69,6 +79,7 @@ describe('authenticate', () => {
         role: UserRole.USER,
       },
     });
+    expect(findAuthenticationUserMock).toHaveBeenCalledWith('user-1');
   });
 
   it('maps an invalid token to a safe authentication error', async () => {
@@ -117,9 +128,50 @@ describe('authenticate', () => {
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe('INVALID_AUTH_TOKEN');
   });
+
+  it('rejects a valid token when its user no longer exists', async () => {
+    verifyAccessTokenMock.mockReturnValue({
+      sub: 'deleted-user',
+      role: UserRole.USER,
+    });
+    findAuthenticationUserMock.mockResolvedValue(null);
+
+    const response = await request(app)
+      .get('/test')
+      .set('Cookie', 'auth_token=valid-token');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe('INVALID_AUTH_TOKEN');
+  });
 });
 
 describe('authorize', () => {
+  it.each([
+    [UserRole.USER, UserRole.USER, UserRole.USER, 200],
+    [UserRole.ADMIN, UserRole.ADMIN, UserRole.ADMIN, 200],
+    [UserRole.ADMIN, UserRole.USER, UserRole.ADMIN, 403],
+    [UserRole.USER, UserRole.ADMIN, UserRole.ADMIN, 200],
+  ])(
+    'authorizes from current database role when token role is %s and database role is %s',
+    async (tokenRole, databaseRole, requiredRole, expectedStatus) => {
+      verifyAccessTokenMock.mockReturnValue({
+        sub: 'user-1',
+        role: tokenRole,
+      });
+      findAuthenticationUserMock.mockResolvedValue({
+        id: 'user-1',
+        role: databaseRole,
+      });
+      const app = createTestApp(authenticate, authorize(requiredRole));
+
+      const response = await request(app)
+        .get('/test')
+        .set('Cookie', 'auth_token=valid-token');
+
+      expect(response.status).toBe(expectedStatus);
+    },
+  );
+
   it('allows an authenticated user with an allowed role', async () => {
     const attachUser: RequestHandler = (request, _response, next) => {
       request.user = {

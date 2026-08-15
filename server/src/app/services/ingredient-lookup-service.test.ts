@@ -145,6 +145,17 @@ describe('findIngredientsByNormalizedValues', () => {
     expect(result.size).toBe(1);
   });
 
+  it('keeps canonical-name resolution authoritative if legacy data also has the alias', async () => {
+    findManyIngredientMock.mockResolvedValue([tomato]);
+    findManyIngredientAliasMock.mockResolvedValue([
+      { alias: 'tomato', ingredient: greenOnion },
+    ]);
+
+    const result = await findIngredientsByNormalizedValues(['tomato']);
+
+    expect(result).toEqual(new Map([['tomato', tomato]]));
+  });
+
   it('produces deterministic output for the same input', async () => {
     findManyIngredientMock.mockResolvedValue([tomato]);
     findManyIngredientAliasMock.mockResolvedValue([

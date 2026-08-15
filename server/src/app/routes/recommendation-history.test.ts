@@ -1,12 +1,21 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getRecommendationHistoryMock, verifyAccessTokenMock } = vi.hoisted(
+const {
+  findAuthenticationUserMock,
+  getRecommendationHistoryMock,
+  verifyAccessTokenMock,
+} = vi.hoisted(
   () => ({
+    findAuthenticationUserMock: vi.fn(),
     getRecommendationHistoryMock: vi.fn(),
     verifyAccessTokenMock: vi.fn(),
   }),
 );
+
+vi.mock('../services/authentication-service.js', () => ({
+  findAuthenticationUser: findAuthenticationUserMock,
+}));
 
 vi.mock('../services/recommendation-history-service.js', () => ({
   getRecommendationHistory: getRecommendationHistoryMock,
@@ -47,6 +56,10 @@ const history = [
 
 beforeEach(() => {
   vi.resetAllMocks();
+  findAuthenticationUserMock.mockImplementation(async (id: string) => ({
+    id,
+    role: id.startsWith('admin') ? 'ADMIN' : 'USER',
+  }));
   getRecommendationHistoryMock.mockResolvedValue(history);
 });
 

@@ -5,11 +5,13 @@ import { ApplicationError } from '../errors/application-error.js';
 
 const {
   createRecipeMock,
+  findAuthenticationUserMock,
   listAllRecipesMock,
   updateRecipeMock,
   verifyAccessTokenMock,
 } = vi.hoisted(() => ({
     createRecipeMock: vi.fn(),
+    findAuthenticationUserMock: vi.fn(),
     listAllRecipesMock: vi.fn(),
     updateRecipeMock: vi.fn(),
     verifyAccessTokenMock: vi.fn(),
@@ -19,6 +21,10 @@ vi.mock('../services/recipe-service.js', () => ({
   createRecipe: createRecipeMock,
   listAllRecipes: listAllRecipesMock,
   updateRecipe: updateRecipeMock,
+}));
+
+vi.mock('../services/authentication-service.js', () => ({
+  findAuthenticationUser: findAuthenticationUserMock,
 }));
 
 vi.mock('../utils/token.js', () => ({
@@ -81,6 +87,10 @@ const validCreateBody = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  findAuthenticationUserMock.mockImplementation(async (id: string) => ({
+    id,
+    role: id.startsWith('admin') ? 'ADMIN' : 'USER',
+  }));
 });
 
 describe('GET /api/v1/admin/recipes', () => {

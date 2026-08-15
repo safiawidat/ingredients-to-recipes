@@ -5,14 +5,20 @@ import { ApplicationError } from '../errors/application-error.js';
 
 const {
   favoriteRecipeMock,
+  findAuthenticationUserMock,
   listFavoritesMock,
   unfavoriteRecipeMock,
   verifyAccessTokenMock,
 } = vi.hoisted(() => ({
-  favoriteRecipeMock: vi.fn(),
+    favoriteRecipeMock: vi.fn(),
+    findAuthenticationUserMock: vi.fn(),
   listFavoritesMock: vi.fn(),
   unfavoriteRecipeMock: vi.fn(),
   verifyAccessTokenMock: vi.fn(),
+}));
+
+vi.mock('../services/authentication-service.js', () => ({
+  findAuthenticationUser: findAuthenticationUserMock,
 }));
 
 vi.mock('../services/favorite-service.js', () => ({
@@ -49,6 +55,10 @@ const authenticateAs = (role: 'USER' | 'ADMIN', id: string): void => {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  findAuthenticationUserMock.mockImplementation(async (id: string) => ({
+    id,
+    role: id.startsWith('admin') ? 'ADMIN' : 'USER',
+  }));
 });
 
 describe.each(['USER', 'ADMIN'] as const)('favorites routes as %s', (role) => {

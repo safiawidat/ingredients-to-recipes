@@ -1,8 +1,10 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError } from '../lib/api';
+import { ProtectedRoute } from '../components/ProtectedRoute';
+import { AUTH_EXPIRED_EVENT, ApiError } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import type { AuthContextValue } from './auth-context-value';
 
@@ -154,5 +156,32 @@ describe('AuthProvider', () => {
     await waitFor(() =>
       expect(screen.getByText('logged-out')).toBeInTheDocument(),
     );
+  });
+
+  it('clears a mid-session user and redirects a protected route after a 401 event', async () => {
+    getCurrentUserMock.mockResolvedValue(user);
+
+    render(
+      <AuthProvider>
+        <MemoryRouter initialEntries={['/private']}>
+          <ContextProbe />
+          <Routes>
+            <Route path="/login" element={<p>Login destination</p>} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/private" element={<p>Protected content</p>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('Protected content')).toBeInTheDocument();
+
+    act(() => {
+      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+    });
+
+    expect(await screen.findByText('logged-out')).toBeInTheDocument();
+    expect(screen.getByText('Login destination')).toBeInTheDocument();
   });
 });

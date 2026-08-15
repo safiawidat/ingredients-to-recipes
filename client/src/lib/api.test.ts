@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError, apiRequest } from './api';
+import { AUTH_EXPIRED_EVENT, ApiError, apiRequest } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -56,10 +56,62 @@ describe('apiRequest', () => {
       ),
     );
 
-    await expect(apiRequest('/auth/login')).rejects.toEqual(
+    await expect(
+      apiRequest('/auth/login', { skipAuthExpiry: true }),
+    ).rejects.toEqual(
       new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password'),
     );
   });
+
+  it('broadcasts a protected-request 401 as an expired authentication state', async () => {
+    const listener = vi.fn();
+    window.addEventListener(AUTH_EXPIRED_EVENT, listener);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: { code: 'INVALID_AUTH_TOKEN', message: 'Expired' },
+          }),
+          { status: 401 },
+        ),
+      ),
+    );
+
+    await expect(apiRequest('/recipes')).rejects.toBeInstanceOf(ApiError);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    window.removeEventListener(AUTH_EXPIRED_EVENT, listener);
+  });
+
+  it.each([
+    [403, false],
+    [401, true],
+  ])(
+    'does not broadcast status %i when skipAuthExpiry is %s',
+    async (status, skipAuthExpiry) => {
+      const listener = vi.fn();
+      window.addEventListener(AUTH_EXPIRED_EVENT, listener);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              error: { code: 'REQUEST_FAILED', message: 'Request failed' },
+            }),
+            { status },
+          ),
+        ),
+      );
+
+      await expect(
+        apiRequest('/test', { skipAuthExpiry }),
+      ).rejects.toBeInstanceOf(ApiError);
+
+      expect(listener).not.toHaveBeenCalled();
+      window.removeEventListener(AUTH_EXPIRED_EVENT, listener);
+    },
+  );
 
   it('preserves explicitly safe optional error details', async () => {
     const details = {

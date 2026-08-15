@@ -74,6 +74,15 @@ beforeEach(() => {
 });
 
 describe('importRecipesAtomically', () => {
+  it('requests the extended interactive transaction timeout', async () => {
+    await importRecipesAtomically([], toDuplicateKey);
+
+    expect(transactionMock).toHaveBeenCalledWith(expect.any(Function), {
+      maxWait: 10_000,
+      timeout: 60_000,
+    });
+  });
+
   it('reads existing names and skips matching records in the transaction', async () => {
     findManyRecipeMock.mockResolvedValue([{ name: 'Existing Soup' }]);
     createManyAndReturnMock.mockResolvedValue([

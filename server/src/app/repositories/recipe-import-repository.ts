@@ -34,68 +34,71 @@ export const importRecipesAtomically = (
   recipes: PreparedRecipeImportRecord[],
   toDuplicateKey: (name: string) => string,
 ): Promise<RecipeImportRepositoryResult> =>
-  prisma.$transaction(async (transaction) => {
-    const existingRecipes = await transaction.recipe.findMany({
-      select: { name: true },
-    });
-    const existingKeys = new Set(
-      existingRecipes.map((recipe) => toDuplicateKey(recipe.name)),
-    );
-    const recipesToCreate = recipes.filter(
-      (recipe) => !existingKeys.has(recipe.duplicateKey),
-    );
-    const existingDuplicateRecordIndexes = recipes
-      .filter((recipe) => existingKeys.has(recipe.duplicateKey))
-      .map((recipe) => recipe.recordIndex);
+  prisma.$transaction(
+    async (transaction) => {
+      const existingRecipes = await transaction.recipe.findMany({
+        select: { name: true },
+      });
+      const existingKeys = new Set(
+        existingRecipes.map((recipe) => toDuplicateKey(recipe.name)),
+      );
+      const recipesToCreate = recipes.filter(
+        (recipe) => !existingKeys.has(recipe.duplicateKey),
+      );
+      const existingDuplicateRecordIndexes = recipes
+        .filter((recipe) => existingKeys.has(recipe.duplicateKey))
+        .map((recipe) => recipe.recordIndex);
 
-    if (recipesToCreate.length === 0) {
-      return {
-        importedRecordIndexes: [],
-        existingDuplicateRecordIndexes,
-      };
-    }
-
-    const createdRecipes = await transaction.recipe.createManyAndReturn({
-      data: recipesToCreate.map((recipe) => ({
-        name: recipe.name,
-        description: recipe.description,
-        instructions: recipe.instructions,
-        cuisine: recipe.cuisine,
-        preparationTime: recipe.preparationTime,
-        servings: recipe.servings,
-        imageUrl: recipe.imageUrl,
-        sourceUrl: recipe.sourceUrl,
-        dietTags: recipe.dietTags,
-        allergens: recipe.allergens,
-        isPublished: recipe.isPublished,
-      })),
-      select: { id: true, name: true },
-    });
-    const createdIdsByName = new Map(
-      createdRecipes.map((recipe) => [recipe.name, recipe.id]),
-    );
-    const relationships = recipesToCreate.flatMap((recipe) => {
-      const recipeId = createdIdsByName.get(recipe.name);
-
-      if (!recipeId) {
-        throw new Error('Bulk recipe import did not return every created ID');
+      if (recipesToCreate.length === 0) {
+        return {
+          importedRecordIndexes: [],
+          existingDuplicateRecordIndexes,
+        };
       }
 
-      return recipe.ingredients.map((ingredient) => ({
-        recipeId,
-        ingredientId: ingredient.ingredientId,
-        quantity: ingredient.quantity,
-        unit: ingredient.unit,
-        category: ingredient.category,
-      }));
-    });
+      const createdRecipes = await transaction.recipe.createManyAndReturn({
+        data: recipesToCreate.map((recipe) => ({
+          name: recipe.name,
+          description: recipe.description,
+          instructions: recipe.instructions,
+          cuisine: recipe.cuisine,
+          preparationTime: recipe.preparationTime,
+          servings: recipe.servings,
+          imageUrl: recipe.imageUrl,
+          sourceUrl: recipe.sourceUrl,
+          dietTags: recipe.dietTags,
+          allergens: recipe.allergens,
+          isPublished: recipe.isPublished,
+        })),
+        select: { id: true, name: true },
+      });
+      const createdIdsByName = new Map(
+        createdRecipes.map((recipe) => [recipe.name, recipe.id]),
+      );
+      const relationships = recipesToCreate.flatMap((recipe) => {
+        const recipeId = createdIdsByName.get(recipe.name);
 
-    await transaction.recipeIngredient.createMany({ data: relationships });
+        if (!recipeId) {
+          throw new Error('Bulk recipe import did not return every created ID');
+        }
 
-    return {
-      importedRecordIndexes: recipesToCreate.map(
-        (recipe) => recipe.recordIndex,
-      ),
-      existingDuplicateRecordIndexes,
-    };
-  });
+        return recipe.ingredients.map((ingredient) => ({
+          recipeId,
+          ingredientId: ingredient.ingredientId,
+          quantity: ingredient.quantity,
+          unit: ingredient.unit,
+          category: ingredient.category,
+        }));
+      });
+
+      await transaction.recipeIngredient.createMany({ data: relationships });
+
+      return {
+        importedRecordIndexes: recipesToCreate.map(
+          (recipe) => recipe.recordIndex,
+        ),
+        existingDuplicateRecordIndexes,
+      };
+    },
+    { maxWait: 10_000, timeout: 60_000 },
+  );

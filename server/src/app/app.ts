@@ -16,41 +16,63 @@ import { ingredientAliasRouter } from './routes/ingredient-aliases.js';
 import { recommendationHistoryRouter } from './routes/recommendation-history.js';
 import { recommendationRouter } from './routes/recommendations.js';
 import { recipeRouter } from './routes/recipes.js';
+import {
+  registerStaticClient,
+  type StaticClientOptions,
+} from './static-client.js';
 
-export const app = express();
-
-app.use(requestLogger);
-app.use(helmet());
-
-app.use(
-  cors({
-    origin: env.CORS_ORIGIN,
-    credentials: true,
-  }),
-);
-
-app.use(
-  express.json({
-    limit: '1mb',
-  }),
-);
-app.use(cookieParser());
-
-app.use('/api/v1/auth', authRouter);
-app.use('/api/v1/health', healthRouter);
-app.use('/api/v1/favorites', favoriteRouter);
-app.use('/api/v1/admin/ingredient-aliases', ingredientAliasRouter);
-app.use('/api/v1/admin/ingredients', adminIngredientRouter);
-app.use('/api/v1/admin/recipes', adminRecipeRouter);
-app.use('/api/v1/recommendation-history', recommendationHistoryRouter);
-app.use('/api/v1/recommendations', recommendationRouter);
-app.use('/api/v1/recipes', recipeRouter);
-
-if (env.NODE_ENV === 'test') {
-  app.get('/api/v1/test-error', () => {
-    throw new Error('Test error');
-  });
+export interface CreateAppOptions {
+  nodeEnv?: StaticClientOptions['nodeEnv'];
+  clientDistPath?: string;
 }
 
-app.use(notFoundHandler);
-app.use(errorHandler);
+export const createApp = (options: CreateAppOptions = {}) => {
+  const app = express();
+
+  app.use(requestLogger);
+  app.use(helmet());
+
+  app.use(
+    cors({
+      origin: env.CORS_ORIGIN,
+      credentials: true,
+    }),
+  );
+
+  app.use(
+    express.json({
+      limit: '1mb',
+    }),
+  );
+  app.use(cookieParser());
+
+  app.use('/api/v1/auth', authRouter);
+  app.use('/api/v1/health', healthRouter);
+  app.use('/api/v1/favorites', favoriteRouter);
+  app.use('/api/v1/admin/ingredient-aliases', ingredientAliasRouter);
+  app.use('/api/v1/admin/ingredients', adminIngredientRouter);
+  app.use('/api/v1/admin/recipes', adminRecipeRouter);
+  app.use('/api/v1/recommendation-history', recommendationHistoryRouter);
+  app.use('/api/v1/recommendations', recommendationRouter);
+  app.use('/api/v1/recipes', recipeRouter);
+
+  if ((options.nodeEnv ?? env.NODE_ENV) === 'test') {
+    app.get('/api/v1/test-error', () => {
+      throw new Error('Test error');
+    });
+  }
+
+  app.use('/api/v1', notFoundHandler);
+  registerStaticClient(app, {
+    nodeEnv: options.nodeEnv ?? env.NODE_ENV,
+    ...(options.clientDistPath
+      ? { clientDistPath: options.clientDistPath }
+      : {}),
+  });
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+
+  return app;
+};
+
+export const app = createApp();

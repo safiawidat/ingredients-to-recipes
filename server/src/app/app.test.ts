@@ -1,5 +1,17 @@
 import request from 'supertest';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 const { queryRawMock } = vi.hoisted(() => ({
   queryRawMock: vi.fn(),
@@ -11,7 +23,26 @@ vi.mock('../database/prisma.js', () => ({
   },
 }));
 
-import { app } from './app.js';
+import { app, createApp } from './app.js';
+
+let clientDistPath: string;
+
+beforeAll(async () => {
+  clientDistPath = await mkdtemp(join(tmpdir(), 'ingredients-client-'));
+  await mkdir(join(clientDistPath, 'assets'));
+  await writeFile(
+    join(clientDistPath, 'index.html'),
+    '<!doctype html><html><body>React test shell</body></html>',
+  );
+  await writeFile(
+    join(clientDistPath, 'assets', 'app.js'),
+    'globalThis.__STATIC_TEST__ = true;',
+  );
+});
+
+afterAll(async () => {
+  await rm(clientDistPath, { recursive: true, force: true });
+});
 
 beforeEach(() => {
   queryRawMock.mockReset();
@@ -75,6 +106,46 @@ describe('unknown routes', () => {
         message: 'Route not found',
       },
     });
+  });
+});
+
+describe('production client hosting', () => {
+  const productionApp = () =>
+    createApp({ nodeEnv: 'production', clientDistPath });
+
+  it('preserves API responses and API 404s', async () => {
+    const healthResponse = await request(productionApp()).get(
+      '/api/v1/health',
+    );
+    const notFoundResponse = await request(productionApp()).get(
+      '/api/v1/unknown',
+    );
+
+    expect(healthResponse.status).toBe(200);
+    expect(healthResponse.type).toContain('json');
+    expect(healthResponse.body).toEqual({ data: { status: 'ok' } });
+    expect(notFoundResponse.status).toBe(404);
+    expect(notFoundResponse.type).toContain('json');
+    expect(notFoundResponse.body.error?.code).toBe('NOT_FOUND');
+  });
+
+  it.each(['/', '/recipes/recipe-1', '/admin/recipes/import'])(
+    'serves the React shell for %s',
+    async (path) => {
+      const response = await request(productionApp()).get(path);
+
+      expect(response.status).toBe(200);
+      expect(response.type).toContain('html');
+      expect(response.text).toContain('React test shell');
+    },
+  );
+
+  it('serves a built static asset', async () => {
+    const response = await request(productionApp()).get('/assets/app.js');
+
+    expect(response.status).toBe(200);
+    expect(response.type).toContain('javascript');
+    expect(response.text).toContain('__STATIC_TEST__');
   });
 });
 

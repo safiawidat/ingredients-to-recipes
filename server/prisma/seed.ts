@@ -8,30 +8,32 @@ import {
   seedRecipes,
   validateSeedManifest,
 } from './seed-data.js';
+import {
+  authorizeSeed,
+  DEPLOYMENT_INITIALIZATION_ARGUMENT,
+  type SeedMode,
+} from './seed-authorization.js';
 
 interface DatabaseTarget {
   hostname: string;
   databaseName: string;
 }
 
-const assertSeedEnvironment = (): string => {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Database seeding is disabled when NODE_ENV=production');
-  }
+const seedMode: SeedMode = process.argv.includes(
+  DEPLOYMENT_INITIALIZATION_ARGUMENT,
+)
+  ? 'deployment-initialization'
+  : 'development-seed';
 
-  if (process.env.ALLOW_DATABASE_SEED !== 'true') {
-    throw new Error(
-      'Database seeding requires explicit local/dev opt-in: set ALLOW_DATABASE_SEED=true',
-    );
-  }
-
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error('DATABASE_URL is required for seeding');
-  }
-
-  return databaseUrl;
-};
+const assertSeedEnvironment = (): string =>
+  authorizeSeed({
+    mode: seedMode,
+    nodeEnv: process.env.NODE_ENV,
+    allowDevelopmentSeed: process.env.ALLOW_DATABASE_SEED,
+    allowProductionInitialization:
+      process.env.ALLOW_PRODUCTION_DATABASE_INITIALIZATION,
+    databaseUrl: process.env.DATABASE_URL,
+  });
 
 const getSanitizedDatabaseTarget = (databaseUrl: string): DatabaseTarget => {
   let parsedUrl: URL;
@@ -66,7 +68,7 @@ const main = async (): Promise<void> => {
   validateSeedManifest();
 
   console.info(
-    `Seeding controlled development data into host=${target.hostname} database=${target.databaseName}`,
+    `${seedMode === 'deployment-initialization' ? 'Initializing controlled deployment baseline' : 'Seeding controlled development data'} in host=${target.hostname} database=${target.databaseName}`,
   );
 
   const adapter = new PrismaPg({
@@ -267,7 +269,7 @@ const main = async (): Promise<void> => {
     );
 
     console.info(
-      `Seed complete: ${seedIngredients.length} ingredients, ${seedAliases.length} aliases, ${seedRecipes.length} recipes, ${seedRecipeIngredientCount} recipe ingredients.`,
+      `${seedMode === 'deployment-initialization' ? 'Deployment initialization' : 'Seed'} complete: ${seedIngredients.length} ingredients, ${seedAliases.length} aliases, ${seedRecipes.length} recipes, ${seedRecipeIngredientCount} recipe ingredients.`,
     );
   } finally {
     await prisma.$disconnect();

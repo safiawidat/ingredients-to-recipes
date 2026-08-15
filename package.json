@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "install:all": "npm --prefix client ci && npm --prefix server ci",
+    "build:render": "npm ci --include=dev --prefix client && npm ci --include=dev --prefix server && npm run build --prefix client && npm run db:generate --prefix server && npm run build --prefix server",
     "dev:client": "npm run dev --prefix client",
     "dev:server": "npm run dev --prefix server",
     "build": "npm run build --prefix client && npm run build --prefix server",
@@ -12,7 +13,8 @@
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "db:generate": "npm run db:generate --prefix server",
     "db:migrate": "npm run db:migrate --prefix server",
-    "db:seed": "npm run db:seed --prefix server"
+    "db:seed": "npm run db:seed --prefix server",
+    "db:init:deployment": "npm run db:init:deployment --prefix server"
   },
   "engines": {
     "node": ">=22 <23"

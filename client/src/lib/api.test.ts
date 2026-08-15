@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { env } from '../config/env';
 import { AUTH_EXPIRED_EVENT, ApiError, apiRequest } from './api';
 
 afterEach(() => {
@@ -24,6 +25,7 @@ describe('apiRequest', () => {
     ).resolves.toEqual({ data: { ok: true } });
 
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${env.apiBaseUrl}/test`);
     expect(request.credentials).toBe('include');
     expect(request.body).toBe(JSON.stringify({ value: 1 }));
     expect(new Headers(request.headers).get('Content-Type')).toBe(

@@ -4,13 +4,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApplicationError } from '../errors/application-error.js';
 
 const {
+  findAuthenticationUserMock,
   getRecipeByIdForUserMock,
   listPublishedRecipesMock,
   verifyAccessTokenMock,
 } = vi.hoisted(() => ({
+  findAuthenticationUserMock: vi.fn(),
   getRecipeByIdForUserMock: vi.fn(),
   listPublishedRecipesMock: vi.fn(),
   verifyAccessTokenMock: vi.fn(),
+}));
+
+vi.mock('../services/authentication-service.js', () => ({
+  findAuthenticationUser: findAuthenticationUserMock,
 }));
 
 vi.mock('../services/recipe-service.js', () => ({
@@ -63,6 +69,10 @@ const recipeDetail = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  findAuthenticationUserMock.mockImplementation(async (id: string) => ({
+    id,
+    role: id.startsWith('admin') ? 'ADMIN' : 'USER',
+  }));
 });
 
 describe('GET /api/v1/recipes', () => {

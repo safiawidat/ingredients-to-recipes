@@ -10,7 +10,10 @@ type ApiErrorBody = {
 
 export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
+  skipAuthExpiry?: boolean;
 }
+
+export const AUTH_EXPIRED_EVENT = 'ingredients-to-recipes:auth-expired';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -30,7 +33,12 @@ export const apiRequest = async <T>(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<T> => {
-  const { body, headers: optionHeaders, ...requestOptions } = options;
+  const {
+    body,
+    headers: optionHeaders,
+    skipAuthExpiry = false,
+    ...requestOptions
+  } = options;
   const headers = new Headers(optionHeaders);
 
   if (body !== undefined && !headers.has('Content-Type')) {
@@ -46,6 +54,10 @@ export const apiRequest = async <T>(
 
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ApiErrorBody;
+
+    if (response.status === 401 && !skipAuthExpiry) {
+      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+    }
 
     throw new ApiError(
       response.status,

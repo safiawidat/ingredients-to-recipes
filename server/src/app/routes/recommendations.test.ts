@@ -3,9 +3,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApplicationError } from '../errors/application-error.js';
 
-const { recommendRecipesMock, verifyAccessTokenMock } = vi.hoisted(() => ({
+const {
+  findAuthenticationUserMock,
+  recommendRecipesMock,
+  verifyAccessTokenMock,
+} = vi.hoisted(() => ({
+  findAuthenticationUserMock: vi.fn(),
   recommendRecipesMock: vi.fn(),
   verifyAccessTokenMock: vi.fn(),
+}));
+
+vi.mock('../services/authentication-service.js', () => ({
+  findAuthenticationUser: findAuthenticationUserMock,
 }));
 
 vi.mock('../services/recommendation-service.js', () => ({
@@ -58,6 +67,10 @@ const serviceResult = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  findAuthenticationUserMock.mockImplementation(async (id: string) => ({
+    id,
+    role: id.startsWith('admin') ? 'ADMIN' : 'USER',
+  }));
   recommendRecipesMock.mockResolvedValue(serviceResult);
 });
 

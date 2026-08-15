@@ -1,12 +1,21 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { listCanonicalIngredientsMock, verifyAccessTokenMock } = vi.hoisted(
+const {
+  findAuthenticationUserMock,
+  listCanonicalIngredientsMock,
+  verifyAccessTokenMock,
+} = vi.hoisted(
   () => ({
+    findAuthenticationUserMock: vi.fn(),
     listCanonicalIngredientsMock: vi.fn(),
     verifyAccessTokenMock: vi.fn(),
   }),
 );
+
+vi.mock('../services/authentication-service.js', () => ({
+  findAuthenticationUser: findAuthenticationUserMock,
+}));
 
 vi.mock('../services/ingredient-service.js', () => ({
   listCanonicalIngredients: listCanonicalIngredientsMock,
@@ -30,6 +39,10 @@ const asUser = (): void => {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  findAuthenticationUserMock.mockImplementation(async (id: string) => ({
+    id,
+    role: id.startsWith('admin') ? 'ADMIN' : 'USER',
+  }));
 });
 
 describe('GET /api/v1/admin/ingredients', () => {

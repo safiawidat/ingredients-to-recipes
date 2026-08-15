@@ -54,6 +54,7 @@ describe('authentication API service', () => {
     expect(apiRequestMock).toHaveBeenCalledWith('/auth/login', {
       method: 'POST',
       body: input,
+      skipAuthExpiry: true,
     });
   });
 

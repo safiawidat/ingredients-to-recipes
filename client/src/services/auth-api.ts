@@ -23,6 +23,7 @@ export const login = async (
   const response = await apiRequest<UserResponse>('/auth/login', {
     method: 'POST',
     body: input,
+    skipAuthExpiry: true,
   });
 
   return response.data.user;

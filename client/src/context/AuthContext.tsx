@@ -6,7 +6,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 
-import { ApiError } from '../lib/api';
+import { AUTH_EXPIRED_EVENT, ApiError } from '../lib/api';
 import * as authApi from '../services/auth-api';
 import type {
   AuthenticatedUser,
@@ -27,6 +27,22 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleAuthenticationExpired = () => {
+      setUser(null);
+      setError(null);
+    };
+
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthenticationExpired);
+
+    return () => {
+      window.removeEventListener(
+        AUTH_EXPIRED_EVENT,
+        handleAuthenticationExpired,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;

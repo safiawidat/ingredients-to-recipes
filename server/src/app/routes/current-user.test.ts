@@ -3,9 +3,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApplicationError } from '../errors/application-error.js';
 
-const { getCurrentUserMock, verifyAccessTokenMock } = vi.hoisted(() => ({
+const {
+  findAuthenticationUserMock,
+  getCurrentUserMock,
+  verifyAccessTokenMock,
+} = vi.hoisted(() => ({
+  findAuthenticationUserMock: vi.fn(),
   getCurrentUserMock: vi.fn(),
   verifyAccessTokenMock: vi.fn(),
+}));
+
+vi.mock('../services/authentication-service.js', () => ({
+  findAuthenticationUser: findAuthenticationUserMock,
 }));
 
 vi.mock('../services/auth-service.js', () => ({
@@ -31,6 +40,10 @@ const safeUser = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  findAuthenticationUserMock.mockImplementation(async (id: string) => ({
+    id,
+    role: id.startsWith('admin') ? 'ADMIN' : 'USER',
+  }));
 });
 
 describe('GET /api/v1/auth/me', () => {

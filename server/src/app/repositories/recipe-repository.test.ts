@@ -114,7 +114,7 @@ describe('findPublishedRecipes', () => {
       where: { isPublished: true },
       skip: 0,
       take: 10,
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: expect.any(Object),
     });
     expect(countRecipeMock).toHaveBeenCalledWith({
@@ -313,7 +313,7 @@ describe('findAllRecipes', () => {
       where: {},
       skip: 5,
       take: 5,
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: expect.any(Object),
     });
     expect(countRecipeMock).toHaveBeenCalledWith({ where: {} });
@@ -344,6 +344,12 @@ describe('findRecipeById', () => {
       where: { id: 'recipe-1' },
       select: expect.any(Object),
     });
+    const query = findUniqueRecipeMock.mock.calls[0]?.[0];
+    expect(query.select.ingredients.orderBy).toEqual([
+      { category: 'asc' },
+      { ingredient: { name: 'asc' } },
+      { ingredientId: 'asc' },
+    ]);
     expect(result).toEqual(recipeDetail);
   });
 

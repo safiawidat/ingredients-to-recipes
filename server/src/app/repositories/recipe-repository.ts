@@ -147,6 +147,11 @@ const recipeDetailSelect = {
   createdAt: true,
   updatedAt: true,
   ingredients: {
+    orderBy: [
+      { category: 'asc' },
+      { ingredient: { name: 'asc' } },
+      { ingredientId: 'asc' },
+    ],
     select: {
       id: true,
       quantity: true,
@@ -157,7 +162,7 @@ const recipeDetailSelect = {
       },
     },
   },
-} as const;
+} satisfies Prisma.RecipeSelect;
 
 const publishedRecipeWithIngredientsSelect = {
   id: true,
@@ -202,7 +207,7 @@ const findRecipes = async (
       where,
       skip: params.skip,
       take: params.take,
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: recipeSummarySelect,
     }),
     prisma.recipe.count({ where }),

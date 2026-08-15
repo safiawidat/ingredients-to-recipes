@@ -21,8 +21,8 @@ The repository is a modular monolith:
 - `server/evaluation/`: evaluation-only KNN quality and performance tooling.
 - `docs/`: development, architecture, import-closeout, and KNN evaluation
   documentation.
-- `render.yaml`: Render Web Service configuration for the API. Frontend hosting
-  is not configured yet.
+- `render.yaml`: single Render Web Service configuration for the compiled API
+  and React frontend.
 
 The REST API is mounted under `/api/v1`. PostgreSQL is the persistence
 authority; recommendation ranking remains a pure service behind the API.
@@ -49,8 +49,10 @@ Copy-Item server/.env.example server/.env
 ```
 
 The client uses `VITE_API_BASE_URL`, which should include the `/api/v1` base
-path. The server requires `DATABASE_URL` and a `JWT_SECRET` of at least 32
-characters. Its remaining runtime settings are documented in
+path. Local development sets it to `http://localhost:3000/api/v1`; a production
+build without an explicit value uses the same-origin `/api/v1` path. The server
+requires `DATABASE_URL` and a `JWT_SECRET` of at least 32 characters. Its
+remaining runtime settings are documented in
 `server/.env.example`: `PORT`, `NODE_ENV`, `CORS_ORIGIN`, `JWT_EXPIRES_IN`,
 `AUTH_COOKIE_NAME`, `AUTH_COOKIE_SECURE`, and `AUTH_COOKIE_SAME_SITE`.
 
@@ -75,9 +77,25 @@ npm.cmd run db:seed
 Remove-Item Env:ALLOW_DATABASE_SEED
 ```
 
-Seeding is blocked when `NODE_ENV=production`. It upserts the controlled seed
-records without deleting unrelated data. Do not run migrations or seed/import
-commands against a database until the target has been verified.
+The normal `db:seed` command is blocked when `NODE_ENV=production`. It upserts
+the controlled seed records without deleting unrelated data. Do not run
+migrations or seed/import commands against a database until the target has
+been verified.
+
+For the one-time controlled deployment baseline only, the dedicated CLI command
+can authorize the same seed implementation in production:
+
+```powershell
+$env:ALLOW_PRODUCTION_DATABASE_INITIALIZATION = 'true'
+npm.cmd run db:init:deployment
+Remove-Item Env:ALLOW_PRODUCTION_DATABASE_INITIALIZATION
+```
+
+The deployment command remains disabled unless that exact flag is present. It
+is never part of application startup, creates no users, and imports neither of
+the generated 235-recipe batches. A successful run verifies 60 ingredients,
+30 aliases, 30 recipes (27 published and 3 unpublished), and 212 recipe
+ingredient relationships.
 
 ## Development and verification commands
 
@@ -239,28 +257,41 @@ npm.cmd run benchmark:knn --prefix server
 
 ## Deployment overview
 
-`render.yaml` configures only the API as a Render Web Service. Its build runs
-`npm ci`, Prisma generation, and the server build; startup applies committed
-migrations before starting Express. Render currently checks the shallow
-`GET /api/v1/health` endpoint, not the database-aware health endpoint.
+`render.yaml` configures one full-stack Render Web Service. The repository-root
+build installs locked client and server dependencies with build-time dev tools
+explicitly included, builds the Vite client, generates Prisma Client, and
+compiles the Express server. Startup applies committed migrations before
+starting Express.
+
+In production, Express serves `client/dist`: `/api/v1/*` remains the JSON API,
+static assets are served directly, and all other application routes fall back
+to `index.html` for React Router. The client defaults to same-origin `/api/v1`,
+so no separate frontend service or custom domain is required. Local development
+continues to run Vite and Express separately with an explicit localhost client
+API base URL.
 
 Phase 7 deployment must configure:
 
-- Server: `DATABASE_URL`, a strong `JWT_SECRET`, the exact frontend
-  `CORS_ORIGIN`, `NODE_ENV=production`, and any non-default cookie/JWT settings.
-- Client: a hosting target, build output from `client/dist`,
-  `VITE_API_BASE_URL` pointing to the deployed `/api/v1`, and an SPA fallback
-  that serves `index.html` for client routes.
-- Database: committed migrations, an explicit baseline seed/import decision,
-  guarded ADMIN provisioning, and a separate controlled-dataset import when
-  required. A Git deployment does not populate application data.
+- Service: `DATABASE_URL`, a strong `JWT_SECRET`, `NODE_ENV=production`, the
+  service's own HTTPS origin as `CORS_ORIGIN`, and any non-default cookie/JWT
+  settings. `VITE_API_BASE_URL` is not required for the same-origin build.
+- Database: manually create one Render PostgreSQL database in the service's
+  region and use its internal URL. Startup applies committed migrations, but a
+  Git deployment does not populate application data.
+- Initialization: after verifying the empty target, run the guarded
+  `db:init:deployment` command once with its explicit authorization flag.
+- Administration: register the intended account normally, then provision its
+  ADMIN role through a separate controlled one-time database operation.
+- Dataset: after ADMIN verification, upload both committed JSON batches through
+  the deployed ADMIN importer; imports never run during deploy or startup.
 - Monitoring: Render's shallow health path is `/api/v1/health`; use
   `/api/v1/health/database` when database readiness must be checked explicitly.
 
-A same-site frontend/API topology is preferred by the current cookie model.
-For a cross-site topology, use HTTPS, `AUTH_COOKIE_SAME_SITE=none`,
-`AUTH_COOKIE_SECURE=true`, credentialed CORS restricted to the frontend
-origin, and add CSRF protection before production use.
+The single service is same-origin. The existing host-only, HTTP-only,
+`SameSite=Lax` authentication cookie becomes Secure in production and works
+without cross-site cookie or CSRF changes. `CORS_ORIGIN` remains narrowly set
+for the service origin in production and preserves the configured Vite origin
+for local development.
 
 ## Known limitations
 
@@ -270,7 +301,6 @@ origin, and add CSRF protection before production use.
 - Recipe browsing is paginated but has no search.
 - The shopping list is temporary and client-only.
 - The API currently has no rate limiting.
-- A cross-site cookie deployment requires additional CSRF protection.
 - A production database must be independently migrated, provisioned, seeded or
   imported according to the chosen deployment plan.
 - Broader accessibility review and polish remain future work; no broad UI or

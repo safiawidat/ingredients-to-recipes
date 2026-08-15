@@ -18,7 +18,8 @@
     "dataset:test": "vitest run prisma/controlled-recipe-dataset.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "db:init:deployment": "tsx prisma/seed.ts --controlled-deployment-initialization"
   },
   "keywords": [],
   "author": "",

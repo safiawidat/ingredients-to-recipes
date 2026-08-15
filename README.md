@@ -1,79 +1,73 @@
 # Ingredients to Recipes
 
-A full-stack web application that recommends recipes based on ingredients the user already has.
+Ingredients to Recipes is a full-stack university project that helps signed-in
+users find published recipes from ingredients they already have. It also
+provides favorites, recommendation history, a temporary shopping list, and
+ADMIN workflows for recipes, canonical ingredients, aliases, and controlled
+JSON imports.
 
-## Tech Stack
+## Architecture and stack
 
-- React
-- TypeScript
-- Vite
-- Node.js
-- Express
-- PostgreSQL
-- Prisma
-- Vitest
+The repository is a modular monolith:
 
-## Project Structure
+- `client/`: React 19, TypeScript, Vite, React Router, and Vitest.
+- `server/`: Node.js 22, Express 5, TypeScript, Prisma, PostgreSQL, Zod, and
+  Vitest.
+- `server/src/app/routes`, `controllers`, `services`, and `repositories`:
+  backend HTTP, application, and persistence layers.
+- `server/prisma/`: schema, migration, deterministic seed, controlled dataset
+  generator, and dataset tests.
+- `sample-data/`: two committed controlled-recipe JSON batches.
+- `server/evaluation/`: evaluation-only KNN quality and performance tooling.
+- `docs/`: development, architecture, import-closeout, and KNN evaluation
+  documentation.
+- `render.yaml`: Render Web Service configuration for the API. Frontend hosting
+  is not configured yet.
 
-- client/ - React frontend
-- server/ - Express API
-- docs/ - project documentation
-- database/ - database assets
-- sample-data/ - sample recipe data
+The REST API is mounted under `/api/v1`. PostgreSQL is the persistence
+authority; recommendation ranking remains a pure service behind the API.
 
-## Requirements
+## Local prerequisites
 
-- Node.js 22
+- Node.js 22 (`.nvmrc` and package engine declarations are authoritative)
 - npm
-- PostgreSQL database
+- PostgreSQL
 
-## Setup
+Install the locked client and server dependencies:
 
-Install dependencies:
+```powershell
+npm.cmd run install:all
+```
 
-npm run install:all
+## Environment setup
 
-Create local environment files using:
+Copy the templates without committing the resulting `.env` files:
 
-client/.env.example
-server/.env.example
+```powershell
+Copy-Item client/.env.example client/.env
+Copy-Item server/.env.example server/.env
+```
 
-Save them as:
+The client uses `VITE_API_BASE_URL`, which should include the `/api/v1` base
+path. The server requires `DATABASE_URL` and a `JWT_SECRET` of at least 32
+characters. Its remaining runtime settings are documented in
+`server/.env.example`: `PORT`, `NODE_ENV`, `CORS_ORIGIN`, `JWT_EXPIRES_IN`,
+`AUTH_COOKIE_NAME`, `AUTH_COOKIE_SECURE`, and `AUTH_COOKIE_SAME_SITE`.
 
-client/.env
-server/.env
+Never commit secrets, credentials, real database URLs, or production cookie
+values.
 
-Generate Prisma Client:
+## Database setup
 
-npm run db:generate
+Generate Prisma Client and apply the committed migration:
 
-## Development
+```powershell
+npm.cmd run db:generate
+npm.cmd run db:migrate
+```
 
-Start the backend:
-
-npm run dev:server
-
-Start the frontend in another terminal:
-
-npm run dev:client
-
-## Quality Checks
-
-Run all checks:
-
-npm run check
-
-## Database Commands
-
-Generate Prisma Client:
-
-npm run db:generate
-
-Apply migrations:
-
-npm run db:migrate
-
-Run seed:
+For local development only, the guarded deterministic seed can populate 60
+canonical ingredients, 30 aliases, and the original 30 recipes:
 
 ```powershell
 $env:ALLOW_DATABASE_SEED = 'true'
@@ -81,86 +75,203 @@ npm.cmd run db:seed
 Remove-Item Env:ALLOW_DATABASE_SEED
 ```
 
-The seed is intended only for local development and is blocked when
-`NODE_ENV=production`. It deterministically upserts an original, controlled
-dataset of 60 canonical ingredients, 30 aliases, and 30 recipes. Running it
-again restores the same controlled records without deleting unrelated data.
+Seeding is blocked when `NODE_ENV=production`. It upserts the controlled seed
+records without deleting unrelated data. Do not run migrations or seed/import
+commands against a database until the target has been verified.
 
-## Controlled Recipe Import
+## Development and verification commands
 
-ADMIN users can open `/admin/recipes/import`, select a local JSON file, and
-send its parsed contents to `POST /api/v1/admin/recipes/import`. The backend
-validates the controlled payload and writes valid, nonduplicate recipes
-atomically to PostgreSQL. Each request accepts at most 500 recipes and is
-subject to the existing 1 MiB JSON body limit.
+Run the API and client in separate terminals:
 
-Recipe names that already exist, or repeat later in the same payload after
-case and whitespace normalization, are skipped and reported in the summary.
-Any unknown ingredient or invalid record rejects the entire import before
-writes. The importer does not scrape, fetch URLs, store uploaded files, or load
-recipes from JSON during normal application runtime.
+```powershell
+npm.cmd run dev:server
+npm.cmd run dev:client
+```
 
-## Controlled Recipe Dataset
+Available root checks mirror the scripts in `package.json`:
 
-The project keeps the original 30 deterministic seed recipes as its baseline
-and provides 470 additional original recipes as controlled import artifacts.
-Together they produce 500 controlled recipes in a clean seeded database after
-the two generated batches are imported separately by an ADMIN.
+```powershell
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd run test
+npm.cmd run build
+npm.cmd run check
+```
 
-The extension is generated deterministically from predefined recipe-family
-templates. It uses only the existing canonical ingredients and aliases, does
-not scrape websites or use external recipe datasets, and produces two
-importer-ready files with 235 recipes each:
+`npm.cmd run check` runs lint, typechecking, all client/server tests, and both
+production builds.
+
+## Implemented application behavior
+
+### Authentication
+
+Registration creates a `USER`. Login issues a signed JWT through a
+credentialed HTTP-only cookie, logout clears it, and protected requests reload
+the current database role before authorization. Both `USER` and `ADMIN` can
+use normal authenticated features; ADMIN routes additionally require the
+current `ADMIN` role.
+
+### Recipes and administration
+
+Authenticated users can browse paginated published recipes and open recipe
+details. ADMIN users can list all recipes, create recipes, and update existing
+recipes, including their ingredient relationships and publication state.
+Recipe browsing does not currently provide search.
+
+### Ingredients and aliases
+
+Recipes reference canonical ingredients. ADMIN users can list the canonical
+vocabulary and manage normalized aliases used during ingredient resolution.
+Aliases cannot duplicate another alias or collide with a canonical ingredient
+name.
+
+### Recommendations and filters
+
+Recommendations recognize canonical ingredient names and aliases, then rank
+only published recipes. Filters for cuisine, maximum preparation time, dietary
+type, and allergens to exclude are applied before KNN ranking.
+
+For each eligible recipe:
+
+- `score = matched ingredient count / recipe ingredient count`
+- `distance = 1 - score`
+- zero-overlap recipes are excluded
+- extra user ingredients do not reduce the score
+- ties are resolved deterministically by missing count, matched count, recipe
+  name, and recipe ID
+
+The production engine and evaluation tooling are separate. See
+`docs/knn-evaluation.md` for the evaluation methodology and measured results.
+
+### Favorites and recommendation history
+
+Authenticated users can add/remove favorites and view their own favorites.
+Successful recommendation runs store user-owned history containing the input,
+filters, recognized/unknown ingredients, result IDs, and summary metadata;
+users can revisit a history entry to prefill the recommendation form.
+
+### Temporary shopping list
+
+The shopping list is generated from a recommendation's missing ingredients.
+It is client-only, temporary, and passed through React Router route state; it
+is not persisted to PostgreSQL. Checkbox state and manual add/remove actions
+remain local to that page/session state.
+
+## Controlled recipe importer and dataset
+
+An ADMIN can select a local JSON file at `/admin/recipes/import`. The client
+parses it and sends the JSON body to `POST /api/v1/admin/recipes/import`. The
+server validates the whole batch, resolves canonical ingredients/aliases, and
+writes valid nonduplicate recipes transactionally. Unknown ingredients or
+invalid records reject the batch before writes; normalized recipe-name
+duplicates are reported and skipped.
+
+The repository commits two deterministic importer-ready batches of 235 recipes
+each:
 
 - `sample-data/controlled-recipes-batch-01.json`
 - `sample-data/controlled-recipes-batch-02.json`
 
-Regenerate the files:
+The verified local import closeout produced:
+
+| Record | Count |
+| --- | ---: |
+| Recipes | 500 |
+| Published recipes | 487 |
+| Unpublished recipes | 13 |
+| Canonical ingredients | 60 |
+| Aliases | 30 |
+| RecipeIngredient rows | 3,428 |
+
+Committing the files does not populate a local or deployed database.
+Local import was verified separately; Render or any other production database
+must be provisioned and imported independently. See
+`docs/controlled-dataset-import.md` for the sanitized closeout evidence.
+
+Dataset generation and validation do not write to PostgreSQL:
 
 ```powershell
 npm.cmd run dataset:generate --prefix server
-```
-
-Validate the generated data and committed artifacts:
-
-```powershell
 npm.cmd run dataset:test --prefix server
 ```
 
-Generation and validation do not write to PostgreSQL. Database import remains
-a separate manual action through the ADMIN recipe importer; these files are
-not claimed to have been imported.
+## KNN evaluation and benchmarking
 
-## KNN Evaluation
-
-Evaluation-only tooling compares the production ingredient-coverage ranking
-with a simpler baseline that ranks recipes by matched ingredient count. It
-uses the source-controlled seed and generated recipe data entirely in memory;
-no database is required and production KNN behavior is unchanged.
+Evaluation-only commands operate on source-controlled data in memory and do
+not change the production engine or database:
 
 ```powershell
+npm.cmd run test:knn-evaluation --prefix server
 npm.cmd run evaluate:knn --prefix server
 npm.cmd run benchmark:knn --prefix server
 ```
 
-The methodology, measured quality results, benchmark environment, limitations,
-and reproduction commands are documented in `docs/knn-evaluation.md`.
+## API overview
 
-## API Endpoints
+### Public routes
 
-GET /api/v1/health
+- `GET /api/v1/health`: shallow process health check.
+- `GET /api/v1/health/database`: database connectivity check.
+- `POST /api/v1/auth/register`: register a USER account.
+- `POST /api/v1/auth/login`: create the authentication cookie.
+- `POST /api/v1/auth/logout`: clear the authentication cookie.
 
-GET /api/v1/health/database
+### Authenticated routes
 
-POST /api/v1/recommendations
+- `GET /api/v1/auth/me`: current safe user profile.
+- `GET /api/v1/recipes` and `GET /api/v1/recipes/:id`: published recipe
+  browsing and details.
+- `POST /api/v1/recommendations`: filtered ingredient-based recommendations.
+- `GET /api/v1/favorites`, `PUT /api/v1/favorites/:recipeId`, and
+  `DELETE /api/v1/favorites/:recipeId`: user-owned favorites.
+- `GET /api/v1/recommendation-history`: user-owned recommendation history.
 
-- Requires authentication for USER and ADMIN accounts.
-- Accepts 1–50 ingredient strings.
-- Accepts an optional recommendation limit from 1–20 (default 5).
-- Returns recognized and unknown ingredients separately.
+### ADMIN routes
 
-## Deployment
+- `GET /api/v1/admin/recipes`, `POST /api/v1/admin/recipes`, and
+  `PATCH /api/v1/admin/recipes/:id`: recipe management.
+- `POST /api/v1/admin/recipes/import`: controlled JSON recipe import.
+- `GET /api/v1/admin/ingredients`: canonical ingredient listing.
+- `GET /api/v1/admin/ingredient-aliases`,
+  `POST /api/v1/admin/ingredient-aliases`,
+  `PATCH /api/v1/admin/ingredient-aliases/:id`, and
+  `DELETE /api/v1/admin/ingredient-aliases/:id`: alias management.
 
-The backend is prepared for Render through render.yaml.
+## Deployment overview
 
-Never commit real .env files or database credentials.
+`render.yaml` configures only the API as a Render Web Service. Its build runs
+`npm ci`, Prisma generation, and the server build; startup applies committed
+migrations before starting Express. Render currently checks the shallow
+`GET /api/v1/health` endpoint, not the database-aware health endpoint.
+
+Phase 7 deployment must configure:
+
+- Server: `DATABASE_URL`, a strong `JWT_SECRET`, the exact frontend
+  `CORS_ORIGIN`, `NODE_ENV=production`, and any non-default cookie/JWT settings.
+- Client: a hosting target, build output from `client/dist`,
+  `VITE_API_BASE_URL` pointing to the deployed `/api/v1`, and an SPA fallback
+  that serves `index.html` for client routes.
+- Database: committed migrations, an explicit baseline seed/import decision,
+  guarded ADMIN provisioning, and a separate controlled-dataset import when
+  required. A Git deployment does not populate application data.
+- Monitoring: Render's shallow health path is `/api/v1/health`; use
+  `/api/v1/health/database` when database readiness must be checked explicitly.
+
+A same-site frontend/API topology is preferred by the current cookie model.
+For a cross-site topology, use HTTPS, `AUTH_COOKIE_SAME_SITE=none`,
+`AUTH_COOKIE_SECURE=true`, credentialed CORS restricted to the frontend
+origin, and add CSRF protection before production use.
+
+## Known limitations
+
+- `Recipe.name` is not database-unique. Sequential importer duplicate handling
+  is tested, but a concurrent duplicate-import race is not prevented by a
+  database uniqueness constraint.
+- Recipe browsing is paginated but has no search.
+- The shopping list is temporary and client-only.
+- The API currently has no rate limiting.
+- A cross-site cookie deployment requires additional CSRF protection.
+- A production database must be independently migrated, provisioned, seeded or
+  imported according to the chosen deployment plan.
+- Broader accessibility review and polish remain future work; no broad UI or
+  accessibility refactor is included in this submission-hygiene chunk.

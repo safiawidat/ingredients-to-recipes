@@ -6,6 +6,7 @@ import {
   type Location,
 } from 'react-router-dom';
 
+import { BrandMark } from '../components/BrandMark';
 import { useAuth } from '../hooks/useAuth';
 import { ApiError } from '../lib/api';
 
@@ -46,7 +47,18 @@ export const LoginPage = () => {
   return (
     <main className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
+        <div className="auth-brand">
+          <BrandMark />
+          <span className="auth-brand-text">
+            Ingredients to Recipes
+            <small>Cook with what you already have</small>
+          </span>
+        </div>
+
         <h1>Log in</h1>
+        <p className="auth-subtitle">
+          Sign in to match recipes against the ingredients you have.
+        </p>
         {state?.message && <p role="status">{state.message}</p>}
         {formError && (
           <p className="form-error" role="alert">

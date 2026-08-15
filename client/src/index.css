@@ -1,103 +1,324 @@
+/* =========================================================================
+   Ingredients to Recipes — design tokens & base layer
+   Direction: "warm culinary editorial" — parchment surfaces, a spice-orange
+   brand, herb-green for positive signals, and a soft warm dark mode.
+   ========================================================================= */
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* ---- brand: spice orange ---- */
+  --brand-50: #fff4ef;
+  --brand-100: #ffe4d6;
+  --brand-200: #ffc6ac;
+  --brand-400: #f4783f;
+  --brand-500: #e4572e;
+  --brand-600: #cc4520;
+  --brand-700: #a13416;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* ---- herb green: matches, success, published ---- */
+  --herb-50: #eef7f0;
+  --herb-200: #bfdfc8;
+  --herb-500: #4f9d62;
+  --herb-600: #3f7d4e;
+  --herb-700: #2f5f3b;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
+  /* ---- amber: missing / attention ---- */
+  --amber-50: #fdf5e5;
+  --amber-200: #f2ddab;
+  --amber-600: #a97615;
+  --amber-700: #855a0c;
+
+  /* ---- danger ---- */
+  --danger-50: #fdf1f0;
+  --danger-200: #f5cdc9;
+  --danger-500: #d1392b;
+  --danger-600: #b42318;
+
+  /* ---- surfaces & ink (warm neutrals) ---- */
+  --canvas: #fbf8f4;
+  --canvas-deep: #f4efe8;
+  --surface: #ffffff;
+  --surface-2: #faf7f2;
+  --surface-3: #f3ede4;
+  --overlay: rgba(255, 255, 255, 0.78);
+
+  --text-h: #1c1917;
+  --text: #57534e;
+  --text-muted: #8a817b;
+  --text-on-brand: #ffffff;
+
+  --border: #e9e2d8;
+  --border-strong: #d9cfc1;
+
+  /* ---- semantic aliases used across components ---- */
+  --accent: var(--brand-600);
+  --accent-bg: var(--brand-50);
+  --accent-border: var(--brand-200);
+  --code-bg: var(--surface-3);
+
+  /* ---- elevation (warm-tinted, layered) ---- */
+  --shadow-xs: 0 1px 2px rgba(60, 40, 25, 0.06);
+  --shadow-sm:
+    0 1px 2px rgba(60, 40, 25, 0.05), 0 2px 6px rgba(60, 40, 25, 0.05);
+  --shadow-md:
+    0 2px 4px rgba(60, 40, 25, 0.05), 0 8px 20px -6px rgba(60, 40, 25, 0.12);
+  --shadow-lg:
+    0 4px 8px rgba(60, 40, 25, 0.06), 0 20px 40px -12px rgba(60, 40, 25, 0.18);
+  --shadow: var(--shadow-md);
+  --ring: 0 0 0 3px var(--brand-100);
+
+  /* ---- shape ---- */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+
+  /* ---- rhythm ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 56px;
+  --shell-width: 1180px;
+  --shell-gutter: 24px;
+
+  /* ---- motion ---- */
+  --ease: cubic-bezier(0.32, 0.72, 0.28, 1);
+  --fast: 130ms var(--ease);
+  --base: 200ms var(--ease);
+
+  /* ---- inline icons (masked, so they inherit the painted colour) ---- */
+  --icon-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11.2v5M12 7.6h.01'/%3E%3C/svg%3E");
+  --icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 3.9 1.9 18.1A2 2 0 0 0 3.6 21h16.8a2 2 0 0 0 1.7-2.9L13.7 3.9a2 2 0 0 0-3.4 0Z'/%3E%3Cpath d='M12 9.5v4M12 17h.01'/%3E%3C/svg%3E");
+  --icon-spinner: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M12 3a9 9 0 1 0 9 9'/%3E%3C/svg%3E");
+  --icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a817b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
+  /* ---- type ---- */
+  --sans:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --heading: var(--sans);
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
   color-scheme: light dark;
   color: var(--text);
-  background: var(--bg);
+  background-color: var(--canvas);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  -webkit-text-size-adjust: 100%;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+    --brand-50: #2b1710;
+    --brand-100: #3d1f14;
+    --brand-200: #5e3120;
+    --brand-400: #ff9a6b;
+    --brand-500: #ff8a5b;
+    --brand-600: #ff9a6b;
+    --brand-700: #ffb894;
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+    --herb-50: #14251a;
+    --herb-200: #2c4a35;
+    --herb-500: #6dbd82;
+    --herb-600: #8ed3a0;
+    --herb-700: #b0e2bd;
+
+    --amber-50: #2a2110;
+    --amber-200: #4a3a18;
+    --amber-600: #e5b559;
+    --amber-700: #f3cd84;
+
+    --danger-50: #2d1614;
+    --danger-200: #55241f;
+    --danger-500: #ef7c70;
+    --danger-600: #f98d80;
+
+    --canvas: #14110f;
+    --canvas-deep: #100e0c;
+    --surface: #1d1917;
+    --surface-2: #232019;
+    --surface-3: #2a2521;
+    --overlay: rgba(29, 25, 23, 0.8);
+
+    --text-h: #f6f1ea;
+    --text: #b9b0a6;
+    --text-muted: #8d857c;
+    --text-on-brand: #2b1207;
+
+    --border: #332d27;
+    --border-strong: #453d35;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-sm:
+      0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.35);
+    --shadow-md:
+      0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 20px -6px rgba(0, 0, 0, 0.55);
+    --shadow-lg:
+      0 4px 8px rgba(0, 0, 0, 0.45), 0 20px 40px -12px rgba(0, 0, 0, 0.65);
+    --ring: 0 0 0 3px rgba(255, 138, 91, 0.28);
   }
+}
+
+/* -------------------------------------------------------------------------
+   Reset & base elements
+   ------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  color: var(--text);
+  background-color: var(--canvas);
 }
 
 #root {
   min-height: 100svh;
 }
 
-body {
-  margin: 0;
-}
-
 h1,
-h2 {
+h2,
+h3,
+h4 {
   font-family: var(--heading);
-  font-weight: 500;
   color: var(--text-h);
+  text-wrap: balance;
 }
 
 h1 {
-  font-size: 40px;
-  letter-spacing: -1.68px;
-  margin: 24px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
+  margin: 0 0 var(--space-3);
+  font-size: clamp(1.75rem, 1.35rem + 1.7vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.028em;
 }
+
 h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
+  margin: 0 0 var(--space-2);
+  font-size: clamp(1.15rem, 1.05rem + 0.4vw, 1.4rem);
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.016em;
 }
+
+h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 1.02rem;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+h4 {
+  margin: 0 0 var(--space-2);
+  font-size: 0.95rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
 p {
   margin: 0;
+  text-wrap: pretty;
+}
+
+a {
+  color: var(--brand-700);
+  text-decoration-color: color-mix(in srgb, var(--brand-700) 35%, transparent);
+  text-underline-offset: 0.18em;
+  transition: color var(--fast);
+}
+
+a:hover {
+  color: var(--brand-600);
+  text-decoration-color: currentColor;
+}
+
+img {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+hr {
+  height: 1px;
+  border: 0;
+  background: var(--border);
+}
+
+strong {
+  color: var(--text-h);
+  font-weight: 650;
 }
 
 code,
 .counter {
-  font-family: var(--mono);
   display: inline-flex;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--text-h);
+  font-family: var(--mono);
 }
 
 code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
+  padding: 2px 6px;
   background: var(--code-bg);
+  font-size: 0.86em;
+  line-height: 1.4;
+}
+
+::selection {
+  background: var(--brand-100);
+  color: var(--text-h);
+}
+
+/* Consistent, visible keyboard focus everywhere. */
+:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* -------------------------------------------------------------------------
+   Scrollbars
+   ------------------------------------------------------------------------- */
+
+@supports (scrollbar-color: auto) {
+  html {
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Motion preferences
+   ------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -2,9 +2,18 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../hooks/useAuth';
+import { BrandMark } from './BrandMark';
 
 const getNavLinkClassName = ({ isActive }: { isActive: boolean }): string =>
   isActive ? 'app-nav-link app-nav-link-active' : 'app-nav-link';
+
+const getInitials = (name: string): string =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
 
 export const AppShell = () => {
   const { logout, user } = useAuth();
@@ -37,7 +46,11 @@ export const AppShell = () => {
       <header className="app-header">
         <div className="app-header-inner">
           <NavLink className="app-brand" to="/">
-            Ingredients to Recipes
+            <BrandMark />
+            <span className="app-brand-text">
+              Ingredients to Recipes
+              <small>Recipe recommender</small>
+            </span>
           </NavLink>
 
           <nav className="app-nav" aria-label="Primary navigation">
@@ -58,13 +71,11 @@ export const AppShell = () => {
             </NavLink>
             {isAdmin && (
               <>
+                <span className="app-nav-divider" aria-hidden="true" />
                 <NavLink className={getNavLinkClassName} end to="/admin">
                   Admin
                 </NavLink>
-                <NavLink
-                  className={getNavLinkClassName}
-                  to="/admin/recipes"
-                >
+                <NavLink className={getNavLinkClassName} to="/admin/recipes">
                   Admin Recipes
                 </NavLink>
                 <NavLink
@@ -79,6 +90,9 @@ export const AppShell = () => {
 
           <div className="app-user">
             <p>
+              <span className="app-user-avatar" aria-hidden="true">
+                {getInitials(user.name)}
+              </span>
               <span className="app-user-name">{user.name}</span>
               <span className="role-badge">{user.role}</span>
             </p>
@@ -101,6 +115,15 @@ export const AppShell = () => {
       <main className="app-content">
         <Outlet />
       </main>
+
+      <footer className="app-footer">
+        <div className="app-footer-inner">
+          <p>
+            <strong>Ingredients to Recipes</strong>
+          </p>
+          <p>Cook with what you already have.</p>
+        </div>
+      </footer>
     </div>
   );
 };

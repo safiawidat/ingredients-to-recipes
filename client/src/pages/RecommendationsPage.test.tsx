@@ -575,12 +575,12 @@ describe('RecommendationsPage', () => {
     expect(secondCard).not.toBeNull();
     expect(
       within(firstCard!).getByRole('button', {
-        name: 'Add missing ingredients to shopping list',
+        name: 'Generate Shopping List',
       }),
     ).toBeInTheDocument();
     expect(
       within(secondCard!).queryByRole('button', {
-        name: 'Add missing ingredients to shopping list',
+        name: 'Generate Shopping List',
       }),
     ).not.toBeInTheDocument();
     expect(within(secondCard!).getByText('None')).toBeInTheDocument();
@@ -595,7 +595,7 @@ describe('RecommendationsPage', () => {
 
     await user.click(
       screen.getByRole('button', {
-        name: 'Add missing ingredients to shopping list',
+        name: 'Generate Shopping List',
       }),
     );
 

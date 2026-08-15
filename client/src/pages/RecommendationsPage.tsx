@@ -614,7 +614,7 @@ export const RecommendationsPage = () => {
 
                         {recommendation.missingIngredients.length > 0 && (
                           <button
-                            className="secondary-button recommendation-shopping-action"
+                            className="primary-button recommendation-shopping-action"
                             type="button"
                             onClick={() =>
                               navigate('/shopping-list', {
@@ -630,7 +630,7 @@ export const RecommendationsPage = () => {
                               })
                             }
                           >
-                            Add missing ingredients to shopping list
+                            Generate Shopping List
                           </button>
                         )}
 

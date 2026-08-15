@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { BrandMark } from '../components/BrandMark';
 import { useAuth } from '../hooks/useAuth';
 import { ApiError } from '../lib/api';
 
@@ -57,7 +58,18 @@ export const RegisterPage = () => {
   return (
     <main className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
+        <div className="auth-brand">
+          <BrandMark />
+          <span className="auth-brand-text">
+            Ingredients to Recipes
+            <small>Cook with what you already have</small>
+          </span>
+        </div>
+
         <h1>Register</h1>
+        <p className="auth-subtitle">
+          Create an account to save favorites and revisit past searches.
+        </p>
         {formError && (
           <p className="form-error" role="alert">
             {formError}
